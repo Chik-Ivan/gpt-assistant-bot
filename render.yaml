@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: gpt-assistant-bot
+    name: gpt-bot
     env: python
-    plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python bot.py"
-    pythonVersion: 3.11.0
+    pythonVersion: "3.11"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
