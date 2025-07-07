@@ -1,9 +1,11 @@
 services:
   - type: web
     name: gpt-assistant-bot-v2
-    env: python
+    runtime: python
     plan: free
-    build:
-      pythonVersion: 3.11
+    autoDeploy: true
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
