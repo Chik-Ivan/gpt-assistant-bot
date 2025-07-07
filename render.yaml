@@ -1,8 +1,7 @@
 services:
   - type: web
-    name: gpt-assistant-bot-v2  # <–– новое имя
+    name: gpt-assistant-bot-v2
     env: python
-    build:
-      pythonVersion: 3.11
+    pythonVersion: 3.11
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
