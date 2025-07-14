@@ -179,3 +179,14 @@ async def create_next_stage(pool, telegram_id: int, stage: int, days: int = 7):
             stage,
             deadline_str,
         )
+
+
+async def get_users_for_reminder(pool):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT user_id FROM progress
+            WHERE completed = false AND checked = false AND deadline < NOW() - interval '2 days'
+        """
+        )
+        return [row["user_id"] for row in rows]

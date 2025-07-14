@@ -20,6 +20,8 @@ from database import (
 )  # type: ignore
 from keyboards import support_button
 from aiogram.utils.exceptions import TelegramAPIError
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
 
@@ -243,7 +245,7 @@ async def support_handler(message: Message):
 
 
 # Запуск
-async def on_startup(dp):
+async def on_startup(dp):  # type: ignore
     global pool
     pool = await create_pool()
     await set_commands(bot)  # ← ВАЖНО: установка команд
@@ -293,3 +295,32 @@ async def error_handler(update, exception):
         pass
 
     return True
+
+
+# Функция, которая будет выполняться каждый день
+async def check_inactive_users():
+    from database import get_users_for_reminder  # ты уже это писал
+
+    user_ids = await get_users_for_reminder(pool)
+    for user_id in user_ids:
+        try:
+            await bot.send_message(
+                user_id,
+                "Привет! Ты ещё не сообщил, как идёт выполнение плана. Всё идёт по плану?",
+            )
+        except Exception as e:
+            logging.error(f"Не удалось отправить напоминание {user_id}: {e}")
+
+
+# В on_startup — запускаем планировщик
+async def on_startup(dp):
+    global pool
+    pool = await create_pool()
+    await set_commands(bot)
+
+    # Планировщик
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(check_inactive_users, CronTrigger(hour=10))  # каждый день в 10:00
+    scheduler.start()
+
+    logging.info("Bot: GPT-Assistant запущен")
