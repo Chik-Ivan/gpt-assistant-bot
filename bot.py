@@ -18,7 +18,8 @@ from database import (
     mark_progress_completed,
     create_next_stage,
 )  # type: ignore
-from keyboards import main_menu, support_button
+from keyboards import support_button
+from aiogram.utils.exceptions import TelegramAPIError
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
 
@@ -139,7 +140,8 @@ async def start_handler(message: Message):
     access = await check_access(pool, user_id)
     if not access:
         await message.reply(
-            "❌ У вас нет доступа к ассистенту. Обратитесь к администратору."
+            "❌ У вас нет доступа. Обратитесь в техподдержку.",
+            reply_markup=support_button,
         )
         return
 
@@ -149,8 +151,7 @@ async def start_handler(message: Message):
         "Будь моим помощником и доведи меня до результата."
     )
     first_response = await chat_with_gpt(user_id, first_prompt)
-    await message.reply(first_response)
-    await message.reply(first_response, reply_markup=main_menu)
+    await message.reply(first_response, reply_markup=support_button)
 
 
 # Диалог
@@ -234,6 +235,14 @@ async def plan_handler(message: Message):
         await message.reply("План ещё не составлен. Продолжай диалог с GPT.")
 
 
+# /потдержка
+@dp.message_handler(commands=["support", "help"])
+async def support_handler(message: Message):
+    await message.reply(
+        "Нужна помощь? Напиши в поддержку:", reply_markup=support_button
+    )
+
+
 # Запуск
 async def on_startup(dp):
     global pool
@@ -270,3 +279,18 @@ async def check_progress_handler(message: Message):
         await message.reply(f"Ты выполнил задания по этапу {stage}? Напиши: да / нет")
         waiting_for_days[user_id] = False  # сбрасываем ожидание дедлайна
         waiting_for_completion[user_id] = stage  # type: ignore # начинаем ждать ответ
+
+
+@dp.errors_handler()
+async def error_handler(update, exception):
+    if isinstance(exception, TelegramAPIError):
+        return True  # игнорируем стандартные ошибки Telegram
+
+    try:
+        await update.message.answer(
+            "⚠️ Возникла ошибка. Обратитесь в поддержку.", reply_markup=support_button
+        )
+    except:
+        pass
+
+    return True
