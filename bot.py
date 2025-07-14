@@ -18,6 +18,7 @@ from database import (
     mark_progress_completed,
     create_next_stage,
 )  # type: ignore
+from keyboards import main_menu, support_button
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
 
@@ -149,6 +150,7 @@ async def start_handler(message: Message):
     )
     first_response = await chat_with_gpt(user_id, first_prompt)
     await message.reply(first_response)
+    await message.reply(first_response, reply_markup=main_menu)
 
 
 # Диалог
@@ -160,7 +162,12 @@ async def handle_chat(message: Message):
     # Проверка доступа
     access = await check_access(pool, user_id)
     if not access:
-        await message.reply("❌ У вас нет доступа. Обратитесь к администратору.")
+        from keyboards import support_button
+
+        await message.reply(
+            "❌ У вас нет доступа. Обратитесь в техподдержку.",
+            reply_markup=support_button,
+        )
         return
 
     # ⏳ Если бот ждёт количество дней
