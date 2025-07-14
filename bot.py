@@ -39,11 +39,10 @@ from aiogram.types import BotCommand
 async def set_commands(bot: Bot):
     commands = [
         BotCommand(command="start", description="Начать работу с помощником"),
-        BotCommand(command="goal", description="Показать мою цель"),  # ← заменено
-        BotCommand(
-            command="plan", description="Показать мой план действий"
-        ),  # ← заменено
+        BotCommand(command="goal", description="Показать мою цель"),
+        BotCommand(command="plan", description="Показать мой план действий"),
         BotCommand(command="check", description="Проверить выполнение плана"),
+        BotCommand(command="support", description="Написать в поддержку"),
     ]
     await bot.set_my_commands(commands)
 
@@ -151,7 +150,7 @@ async def start_handler(message: Message):
         "Будь моим помощником и доведи меня до результата."
     )
     first_response = await chat_with_gpt(user_id, first_prompt)
-    await message.reply(first_response, reply_markup=support_button)
+    await message.reply(first_response)
 
 
 # Диалог
@@ -236,7 +235,7 @@ async def plan_handler(message: Message):
 
 
 # /потдержка
-@dp.message_handler(commands=["support", "help"])
+@dp.message_handler(commands=["support"])
 async def support_handler(message: Message):
     await message.reply(
         "Нужна помощь? Напиши в поддержку:", reply_markup=support_button
