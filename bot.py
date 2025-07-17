@@ -24,13 +24,16 @@ from aiogram.utils.exceptions import TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from aiohttp import web
-from aiogram.dispatcher.webhook import get_new_configured_app
+from aiogram.utils.executor import start_webhook
 
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Например: gpt-assistant-bot-v2.onrender.com
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"https://{WEBHOOK_HOST}{WEBHOOK_PATH}"
+WEBHOOK_HOST = os.getenv(
+    "WEBHOOK_HOST"
+)  # Например: https://gpt-assistant-bot-v.onrender.com
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+
 WEBAPP_HOST = "0.0.0.0"
-WEBAPP_PORT = int(os.environ.get("PORT", 5000))
+WEBAPP_PORT = int(os.getenv("PORT", 5000))
 
 sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
 
@@ -268,13 +271,29 @@ async def on_shutdown(app):
 
 
 # 🚀 RUN WEBHOOK
-if __name__ == "__main__":
-    app = web.Application()
-    app.on_startup.append(on_startup)
-    app.on_shutdown.append(on_shutdown)
-    app.router.add_post(WEBHOOK_PATH, get_new_configured_app(dispatcher=dp, bot=bot))  # type: ignore
+async def on_startup_webhook(dp):
+    global pool
+    pool = await create_pool()
+    await bot.set_webhook(WEBHOOK_URL)
+    await set_commands(bot)
+    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
 
-    web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
+
+async def on_shutdown_webhook(dp):
+    logging.warning("Удаление webhook...")
+    await bot.delete_webhook()
+
+
+if __name__ == "__main__":
+    start_webhook(
+        dispatcher=dp,
+        webhook_path=WEBHOOK_PATH,
+        on_startup=on_startup_webhook,
+        on_shutdown=on_shutdown_webhook,
+        skip_updates=True,
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
+    )
 
 
 # /Прверка
