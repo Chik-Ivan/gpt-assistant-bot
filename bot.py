@@ -19,12 +19,15 @@ from database import (
     mark_progress_completed,
     create_next_stage,
 )  # type: ignore
+
+
 from keyboards import support_button
 from aiogram.utils.exceptions import TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from aiohttp import web
 from aiogram.utils.executor import start_webhook
+import datetime
 
 WEBHOOK_HOST = os.getenv(
     "WEBHOOK_HOST"
@@ -353,7 +356,7 @@ async def check_inactive_users():
 
 
 # В on_startup — запускаем планировщик
-async def on_startup(dp):
+async def on_startup(dp):  # type: ignore
     global pool
     pool = await create_pool()
     await set_commands(bot)
@@ -364,3 +367,55 @@ async def on_startup(dp):
     scheduler.start()
 
     logging.info("Bot: GPT-Assistant запущен")
+
+    async def send_reminders():
+        """Проверяет пользователей и отправляет напоминания тем, у кого есть незавершенные этапы"""
+
+    try:
+        async with pool.acquire() as conn:
+            users = await conn.fetch(
+                """
+                SELECT user_id FROM progress
+                WHERE completed = FALSE AND deadline > NOW() - INTERVAL '2 days'
+            """
+            )
+
+        for record in users:
+            user_id = record["user_id"]
+            try:
+                await bot.send_message(
+                    user_id, "🔔 Напоминаю о твоем плане! Проверь прогресс: /check"
+                )
+            except Exception as e:
+                logging.error(
+                    f"Не удалось отправить напоминание пользователю {user_id}: {e}"
+                )
+    except Exception as e:
+        logging.error(f"Ошибка при отправке напоминаний: {e}")
+
+
+# ✅ Функция напоминаний
+async def send_reminders():
+    from aiogram.utils.exceptions import BotBlocked
+
+    users = await get_all_users(pool)  # type: ignore # нужно будет добавить функцию в database.py
+    for user in users:
+        try:
+            await bot.send_message(
+                user["user_id"], "⏰ Напоминаю: проверь свой план! Выполнил задания?"
+            )
+        except BotBlocked:
+            logging.warning(f"Пользователь {user['user_id']} заблокировал бота")
+
+
+# ✅ Обновлённый on_startup
+async def on_startup(dp):
+    global pool
+    pool = await create_pool()
+    await set_commands(bot)
+    logging.info("Bot: GPT-Assistant запущен")
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(check_inactive_users, CronTrigger(hour=10))  # Проверка активности
+    scheduler.add_job(send_reminders, CronTrigger(hour=18))  # Ежедневное напоминание
+    scheduler.start()

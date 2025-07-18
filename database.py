@@ -190,3 +190,9 @@ async def get_users_for_reminder(pool):
         """
         )
         return [row["user_id"] for row in rows]
+
+
+async def get_all_users(pool):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT user_id FROM users WHERE access = true")
+        return [dict(row) for row in rows]
