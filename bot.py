@@ -3,10 +3,11 @@ import sys
 import logging
 import openai
 import os
-from aiogram import Bot, Dispatcher, types
+import random
+from aiogram import Bot, Dispatcher
 from aiogram.types import Message
-from aiogram.utils import executor
 from config import BOT_TOKEN, OPENAI_API_KEY
+import datetime
 from database import create_progress_stage  # type: ignore
 from database import (
     create_pool,
@@ -20,14 +21,14 @@ from database import (
     create_next_stage,
 )  # type: ignore
 
-
+from aiogram.utils.exceptions import BotBlocked
 from keyboards import support_button
 from aiogram.utils.exceptions import TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from aiohttp import web
 from aiogram.utils.executor import start_webhook
-import datetime
+
 
 WEBHOOK_HOST = os.getenv(
     "WEBHOOK_HOST"
@@ -356,56 +357,42 @@ async def check_inactive_users():
 
 
 # В on_startup — запускаем планировщик
-async def on_startup(dp):  # type: ignore
-    global pool
-    pool = await create_pool()
-    await set_commands(bot)
-
-    # Планировщик
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(check_inactive_users, CronTrigger(hour=10))  # каждый день в 10:00
-    scheduler.start()
-
-    logging.info("Bot: GPT-Assistant запущен")
-
-    async def send_reminders():
-        """Проверяет пользователей и отправляет напоминания тем, у кого есть незавершенные этапы"""
-
-    try:
-        async with pool.acquire() as conn:
-            users = await conn.fetch(
-                """
-                SELECT user_id FROM progress
-                WHERE completed = FALSE AND deadline > NOW() - INTERVAL '2 days'
-            """
-            )
-
-        for record in users:
-            user_id = record["user_id"]
-            try:
-                await bot.send_message(
-                    user_id, "🔔 Напоминаю о твоем плане! Проверь прогресс: /check"
-                )
-            except Exception as e:
-                logging.error(
-                    f"Не удалось отправить напоминание пользователю {user_id}: {e}"
-                )
-    except Exception as e:
-        logging.error(f"Ошибка при отправке напоминаний: {e}")
-
-
-# ✅ Функция напоминаний
-async def send_reminders():
-    from aiogram.utils.exceptions import BotBlocked
-
-    users = await get_all_users(pool)  # type: ignore # нужно будет добавить функцию в database.py
+async def send_reminders():  # type: ignore
+    """Отправка напоминаний всем пользователям"""
+    users = await get_all_users( # type: ignore
+        pool
+    )  # Функция должна вернуть список словарей с user_id
     for user in users:
         try:
-            await bot.send_message(
-                user["user_id"], "⏰ Напоминаю: проверь свой план! Выполнил задания?"
-            )
+            # 50% шанс использовать GPT
+            if random.random() > 0.5:
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[
+                            {"role": "system", "content": "Ты дружелюбный мотиватор."},
+                            {
+                                "role": "user",
+                                "content": "Придумай короткое напоминание для проверки прогресса. Максимум одно предложение, позитивное.",
+                            },
+                        ],
+                        max_tokens=50,
+                        temperature=0.8,
+                    )
+                    text = response.choices[0].message["content"].strip() # type: ignore
+                except Exception as e:
+                    logging.warning(f"Ошибка GPT: {e}. Использую заготовленный текст.")
+                    text = random.choice(REMINDER_TEXTS)
+            else:
+                text = random.choice(REMINDER_TEXTS)
+
+            await bot.send_message(user["user_id"], text)
         except BotBlocked:
             logging.warning(f"Пользователь {user['user_id']} заблокировал бота")
+        except Exception as e:
+            logging.error(
+                f"Ошибка отправки напоминания пользователю {user['user_id']}: {e}"
+            )
 
 
 # ✅ Обновлённый on_startup
@@ -413,9 +400,21 @@ async def on_startup(dp):
     global pool
     pool = await create_pool()
     await set_commands(bot)
-    logging.info("Bot: GPT-Assistant запущен")
+    logging.info("✅ Бот запущен")
 
+    # Планировщик
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(check_inactive_users, CronTrigger(hour=10))  # Проверка активности
-    scheduler.add_job(send_reminders, CronTrigger(hour=18))  # Ежедневное напоминание
+    scheduler.add_job(
+        check_inactive_users, CronTrigger(hour=10)
+    )  # проверка активности утром
+    scheduler.add_job(send_reminders, CronTrigger(hour=18))  # напоминание вечером
     scheduler.start()
+
+    logging.info("✅ Планировщик запущен: проверка в 10:00, напоминания в 18:00")
+
+REMINDER_TEXTS = [
+    "⏰ Проверь свой план! Делаешь успехи?",
+    "🔔 Не забывай про свои цели, ты справишься!",
+    "📅 Настало время проверить прогресс.",
+    "🔥 Ты молодец! Но цели сами не выполнятся!"
+]
