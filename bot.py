@@ -6,6 +6,8 @@ import re
 import random
 import datetime
 import openai
+from aiohttp import web
+from aiogram.dispatcher.webhook import get_new_configured_app
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, BotCommand
 from aiogram.utils.exceptions import BotBlocked, TelegramAPIError
@@ -233,12 +235,27 @@ async def on_shutdown_webhook(dp):
     await bot.delete_webhook()
 
 if __name__ == "__main__":
-    start_webhook(
-        dispatcher=dp,
-        webhook_path=WEBHOOK_PATH,
-        on_startup=on_startup_webhook,
-        on_shutdown=on_shutdown_webhook,
-        skip_updates=True,
-        host=WEBAPP_HOST,
-        port=WEBAPP_PORT,
-    )
+    # Запускаем aiohttp сервер с aiogram
+    app = get_new_configured_app(dispatcher=dp, path=WEBHOOK_PATH)
+
+    async def on_startup_webhook(app):
+        global pool
+        pool = await create_pool()
+        await bot.set_webhook(WEBHOOK_URL)
+        await set_commands(bot)
+        logging.info(f"Webhook установлен: {WEBHOOK_URL}")
+
+    async def on_shutdown_webhook(app):
+        logging.warning("Удаление webhook...")
+        await bot.delete_webhook()
+
+    app.on_startup.append(on_startup_webhook)
+    app.on_shutdown.append(on_shutdown_webhook)
+
+    # Health-check для Render (убираем 404)
+    async def health_check(request):
+        return web.Response(text="OK", status=200)
+
+    app.router.add_get("/", health_check)
+
+    web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
