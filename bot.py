@@ -6,6 +6,7 @@ import re
 import random
 import datetime
 import openai
+from aiogram.utils.executor import start_webhook
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, BotCommand
 from aiogram.utils.exceptions import BotBlocked, TelegramAPIError
