@@ -1,14 +1,21 @@
 # -*- coding: utf-8 -*-
 import sys
 import logging
-import openai
 import os
+import re
 import random
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message
-from config import BOT_TOKEN, OPENAI_API_KEY
 import datetime
-from database import create_progress_stage  # type: ignore
+import openai
+
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import Message, BotCommand
+from aiogram.utils.exceptions import BotBlocked, TelegramAPIError
+from aiogram.dispatcher.webhook import get_new_configured_app
+from aiohttp import web
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+
+from config import BOT_TOKEN, OPENAI_API_KEY
 from database import (
     create_pool,
     upsert_user,
@@ -19,61 +26,51 @@ from database import (
     check_last_progress,
     mark_progress_completed,
     create_next_stage,
-)  # type: ignore
-
-from aiogram.utils.exceptions import BotBlocked
+    get_all_users,
+)
 from keyboards import support_button
-from aiogram.utils.exceptions import TelegramAPIError
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from aiohttp import web
-from aiogram.utils.executor import start_webhook
 
-
-WEBHOOK_HOST = os.getenv(
-    "WEBHOOK_HOST"
-)  # Например: https://gpt-assistant-bot-v.onrender.com
+# ✅ Webhook + WebApp config
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "https://gpt-assistant-bot-v.onrender.com")
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 WEBAPP_HOST = "0.0.0.0"
-WEBAPP_PORT = int(os.getenv("PORT", 5000))
+WEBAPP_PORT = int(os.getenv("PORT", 10000))
 
-sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
-
+# ✅ Настройка логов
+sys.stdout.reconfigure(encoding="utf-8")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 
-bot = Bot(token=BOT_TOKEN)  # type: ignore
+# ✅ Инициализация
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 openai.api_key = OPENAI_API_KEY
 
-from aiogram.types import BotCommand
+# ✅ Глобальные переменные
+dialogues = {}
+waiting_for_days = {}  # user_id → True (ожидает срок)
+waiting_for_completion = {}  # user_id → номер этапа
+pool = None
 
-
+# ✅ Команды
 async def set_commands(bot: Bot):
     commands = [
-        BotCommand(command="start", description="Начать работу с помощником"),
-        BotCommand(command="goal", description="Показать мою цель"),
-        BotCommand(command="plan", description="Показать мой план действий"),
-        BotCommand(command="check", description="Проверить выполнение плана"),
+        BotCommand(command="start", description="Начать работу"),
+        BotCommand(command="goal", description="Показать цель"),
+        BotCommand(command="plan", description="Показать план"),
+        BotCommand(command="check", description="Проверить прогресс"),
         BotCommand(command="support", description="Написать в поддержку"),
     ]
     await bot.set_my_commands(commands)
 
-
-# Хранение диалогов
-dialogues = {}
-waiting_for_days = {}  # user_id: True/False — ждёт ли бот срок
-pool = None  # создаётся при запуске
-waiting_for_completion = {}  # user_id: номер этапа, если бот ждёт подтверждения
-
-# System prompt
+# ✅ System Prompt
 system_prompt = (
-    "Ты — личный ассистент-кондитера. Твоя задача — помочь пользователю определить и сформулировать свою цель по доходу, выявить сложности и ресурсы, и составить чёткий пошаговый план.\n\n"
+     "Ты — личный ассистент-кондитера. Твоя задача — помочь пользователю определить и сформулировать свою цель по доходу, выявить сложности и ресурсы, и составить чёткий пошаговый план.\n\n"
     "Действуй по следующей логике:\n"
     "1. Выясни, кто перед тобой (новичок, профи, ученик и т.д.)\n"
     "2. Узнай, чего он хочет достичь (в деньгах, уровне, статусе)\n"
@@ -93,328 +90,173 @@ system_prompt = (
     "Говори на русском, дружелюбно, уверенно. Не отпускай пользователя. Веди его до конца."
 )
 
-# Извлечение числа дней из текста (для гибкого дедлайна)
-import re
-
-
+# ✅ Вспомогательные функции
 def extract_days(text: str) -> int:
-    """Пытается извлечь число дней из текста"""
     numbers = re.findall(r"\d+", text)
-    if numbers:
-        return int(numbers[0])
-    return 7  # по умолчанию, если число не указано
+    return int(numbers[0]) if numbers else 7
 
-
-# Вспомогательная функция
 def extract_between(text, start, end):
     try:
         return text.split(start)[1].split(end)[0]
     except IndexError:
         return ""
 
-
-# GPT-ответ + сохранение цели/плана
+# ✅ GPT функция
 async def chat_with_gpt(user_id: int, user_input: str) -> str:
     if user_id not in dialogues:
         dialogues[user_id] = [{"role": "system", "content": system_prompt}]
-
     dialogues[user_id].append({"role": "user", "content": user_input})
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o", messages=dialogues[user_id], temperature=0.7
+            model="gpt-4o",
+            messages=dialogues[user_id],
+            temperature=0.7
         )
-        gpt_reply = response["choices"][0]["message"]["content"]  # type: ignore
-        dialogues[user_id].append({"role": "assistant", "content": gpt_reply})
+        reply = response["choices"][0]["message"]["content"]
+        dialogues[user_id].append({"role": "assistant", "content": reply})
 
-        if "Цель:" in gpt_reply and "План действий" in gpt_reply:
-            goal = extract_between(gpt_reply, "Цель:", "План действий").strip()
-            plan = gpt_reply.split("План действий:")[-1].strip()
+        # ✅ Сохраняем цель и план
+        if "Цель:" in reply and "План действий" in reply:
+            goal = extract_between(reply, "Цель:", "План действий").strip()
+            plan = reply.split("План действий:")[-1].strip()
             await update_goal_and_plan(pool, user_id, goal, plan)
 
-            # Сохраняем первую неделю прогресса (по умолчанию 7 дней)
-            import datetime
+            # Создаём прогресс на неделю
+            deadline = (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            await create_progress_stage(pool, user_id, stage=1, deadline=deadline)
 
-            today = datetime.datetime.now()
-            deadline = today + datetime.timedelta(days=7)
-            deadline_str = deadline.strftime("%Y-%m-%d %H:%M:%S")
-            await create_progress_stage(pool, user_id, stage=1, deadline=deadline_str)
-
-        return gpt_reply
-
+        return reply
     except Exception as e:
-        return f"Ошибка GPT: {type(e).__name__}"
+        return f"Ошибка GPT: {e}"
 
-
-# /start
+# ✅ /start
 @dp.message_handler(commands=["start"])
 async def start_handler(message: Message):
     user_id = message.from_user.id
-    username = message.from_user.username or ""
-    first_name = message.from_user.first_name or ""
-    await upsert_user(pool, user_id, username, first_name)
+    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
 
-    access = await check_access(pool, user_id)
-    if not access:
-        await message.reply(
-            "❌ У вас нет доступа. Обратитесь в техподдержку.",
-            reply_markup=support_button,
-        )
+    if not await check_access(pool, user_id):
+        await message.reply("❌ У вас нет доступа. Обратитесь в поддержку:", reply_markup=support_button)
         return
 
     dialogues[user_id] = [{"role": "system", "content": system_prompt}]
-    first_prompt = (
-        "Задай мне вопросы, чтобы определить мой тип кондитера, цели по доходу и помочь мне их достичь. "
-        "Будь моим помощником и доведи меня до результата."
-    )
-    first_response = await chat_with_gpt(user_id, first_prompt)
-    await message.reply(first_response)
-
-
-# Диалог
-@dp.message_handler()
-async def handle_chat(message: Message):
-    user_id = message.from_user.id
-    user_text = message.text
-
-    # Проверка доступа
-    access = await check_access(pool, user_id)
-    if not access:
-        from keyboards import support_button
-
-        await message.reply(
-            "❌ У вас нет доступа. Обратитесь в техподдержку.",
-            reply_markup=support_button,
-        )
-        return
-
-    # ⏳ Если бот ждёт количество дней
-    if waiting_for_days.get(user_id):
-        days = extract_days(user_text)
-        import datetime
-
-        deadline = datetime.datetime.now() + datetime.timedelta(days=days)
-        deadline_str = deadline.strftime("%Y-%m-%d %H:%M:%S")
-        await create_progress_stage(pool, user_id, stage=1, deadline=deadline_str)
-
-        await message.reply(f"Отлично! План зафиксирован на {days} дней ✅")
-        waiting_for_days[user_id] = False
-        return
-
-    # ✅ Если бот ждёт подтверждение выполнения задания
-    if user_id in waiting_for_completion:
-        answer = user_text.lower()
-        current_stage = waiting_for_completion[user_id]
-
-        if "да" in answer:
-            await mark_progress_completed(pool, user_id, current_stage)
-            await message.reply("Отлично! 🔥 Ты получаешь балл. Продолжаем!")
-            await create_next_stage(pool, user_id, stage=current_stage + 1)
-            del waiting_for_completion[user_id]
-            return
-
-        elif "нет" in answer:
-            await message.reply(
-                "Понимаю. Но если ты не будешь делать — ты не достигнешь цели 😔\nПродолжаем или отложим?"
-            )
-            del waiting_for_completion[user_id]
-            return
-
-    # 💬 Обычный диалог с GPT
-    response = await chat_with_gpt(user_id, user_text)
+    response = await chat_with_gpt(user_id, "Начнем?")
     await message.reply(response)
 
-    # если GPT задал вопрос про срок — начинаем ждать ответ
-    if any(
-        word in response.lower()
-        for word in ["тебе подойдёт", "за сколько дней", "график", "срок"]
-    ):
+# ✅ Обработчик диалога
+@dp.message_handler()
+async def handle_message(message: Message):
+    user_id, text = message.from_user.id, message.text
+
+    if not await check_access(pool, user_id):
+        await message.reply("❌ Нет доступа. Обратитесь в поддержку:", reply_markup=support_button)
+        return
+
+    # ✅ Ждём срок
+    if waiting_for_days.get(user_id):
+        days = extract_days(text)
+        deadline = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+        await create_progress_stage(pool, user_id, stage=1, deadline=deadline)
+        waiting_for_days[user_id] = False
+        await message.reply(f"✅ План зафиксирован на {days} дней.")
+        return
+
+    # ✅ Ждём ответ по выполнению
+    if user_id in waiting_for_completion:
+        if "да" in text.lower():
+            await mark_progress_completed(pool, user_id, waiting_for_completion[user_id])
+            await create_next_stage(pool, user_id, waiting_for_completion[user_id] + 1)
+            await message.reply("🔥 Отлично! Идём дальше!")
+        else:
+            await message.reply("⚠️ Не сдавайся! Попробуем продолжить?")
+        del waiting_for_completion[user_id]
+        return
+
+    # ✅ Диалог с GPT
+    response = await chat_with_gpt(user_id, text)
+    await message.reply(response)
+
+    if any(w in response.lower() for w in ["срок", "дедлайн", "за сколько"]):
         waiting_for_days[user_id] = True
 
-
-# /цель
+# ✅ /goal
 @dp.message_handler(commands=["goal"])
 async def goal_handler(message: Message):
     goal, _ = await get_goal_and_plan(pool, message.from_user.id)
-    if goal:
-        await message.reply(f"🎯 Твоя цель:\n\n{goal}")
-    else:
-        await message.reply("Цель ещё не сохранена. Заверши диалог с GPT.")
+    await message.reply(f"🎯 Твоя цель:\n{goal}" if goal else "Цель не найдена.")
 
-
-# /план
+# ✅ /plan
 @dp.message_handler(commands=["plan"])
 async def plan_handler(message: Message):
     _, plan = await get_goal_and_plan(pool, message.from_user.id)
-    if plan:
-        await message.reply(f"📅 План действий:\n\n{plan}")
-    else:
-        await message.reply("План ещё не составлен. Продолжай диалог с GPT.")
+    await message.reply(f"📅 План:\n{plan}" if plan else "План не найден.")
 
+# ✅ /check
+@dp.message_handler(commands=["check"])
+async def check_handler(message: Message):
+    progress = await check_last_progress(pool, message.from_user.id)
+    if not progress:
+        await message.reply("Нет активного этапа.")
+        return
+    await message.reply(f"Этап {progress['stage']} готов? Напиши: да / нет")
+    waiting_for_completion[message.from_user.id] = progress["stage"]
 
-# /потдержка
+# ✅ /support
 @dp.message_handler(commands=["support"])
 async def support_handler(message: Message):
-    await message.reply(
-        "Нужна помощь? Напиши в поддержку:", reply_markup=support_button
-    )
+    await message.reply("Нужна помощь? Напиши сюда:", reply_markup=support_button)
 
+# ✅ Напоминания
+REMINDER_TEXTS = [
+    "⏰ Проверь свой план!",
+    "🔥 Время проверить прогресс!",
+    "📅 Двигаемся к цели, как дела?",
+    "💪 Ты молодец! Но цели сами не выполнятся!"
+]
 
-# 🔧 ON STARTUP
-async def on_startup(app):  # type: ignore
-    global pool
-    pool = await create_pool()
-    await set_commands(bot)
-    await bot.set_webhook(WEBHOOK_URL)
-    logging.info("✅ Бот запущен через Webhook")
-
-
-# 🛑 ON SHUTDOWN
-async def on_shutdown(app):
-    await bot.delete_webhook()
-
-
-# 🚀 RUN WEBHOOK
-async def on_startup_webhook(dp):
-    global pool
-    pool = await create_pool()
-    await bot.set_webhook(WEBHOOK_URL)
-    await set_commands(bot)
-    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
-
-
-async def on_shutdown_webhook(dp):
-    logging.warning("Удаление webhook...")
-    await bot.delete_webhook()
-
-
-if __name__ == "__main__":
-    start_webhook(
-        dispatcher=dp,
-        webhook_path=WEBHOOK_PATH,
-        on_startup=on_startup_webhook,
-        on_shutdown=on_shutdown_webhook,
-        skip_updates=True,
-        host=WEBAPP_HOST,
-        port=WEBAPP_PORT,
-    )
-
-
-# /Прверка
-@dp.message_handler(commands=["check"])
-async def check_progress_handler(message: Message):
-    user_id = message.from_user.id
-    progress = await check_last_progress(pool, user_id)
-
-    if not progress:
-        await message.reply(
-            "У тебя ещё нет начатого плана. Заверши первую неделю с GPT."
-        )
-        return
-
-    stage = progress["stage"]
-    completed = progress["completed"]
-    checked = progress["checked"]
-
-    if completed:
-        await message.reply("✅ Ты уже завершил последний этап. Молодец!")
-        return
-
-    if not checked:
-        await message.reply(f"Ты выполнил задания по этапу {stage}? Напиши: да / нет")
-        waiting_for_days[user_id] = False  # сбрасываем ожидание дедлайна
-        waiting_for_completion[user_id] = stage  # type: ignore # начинаем ждать ответ
-
-
-@dp.errors_handler()
-async def error_handler(update, exception):
-    if isinstance(exception, TelegramAPIError):
-        return True  # игнорируем стандартные ошибки Telegram
-
-    try:
-        await update.message.answer(
-            "⚠️ Возникла ошибка. Обратитесь в поддержку.", reply_markup=support_button
-        )
-    except:
-        pass
-
-    return True
-
-
-# Функция, которая будет выполняться каждый день
-async def check_inactive_users():
-    from database import get_users_for_reminder  # ты уже это писал
-
-    user_ids = await get_users_for_reminder(pool)
-    for user_id in user_ids:
-        try:
-            await bot.send_message(
-                user_id,
-                "Привет! Ты ещё не сообщил, как идёт выполнение плана. Всё идёт по плану?",
-            )
-        except Exception as e:
-            logging.error(f"Не удалось отправить напоминание {user_id}: {e}")
-
-
-# В on_startup — запускаем планировщик
-async def send_reminders():  # type: ignore
-    """Отправка напоминаний всем пользователям"""
-    users = await get_all_users( # type: ignore
-        pool
-    )  # Функция должна вернуть список словарей с user_id
+async def send_reminders():
+    users = await get_all_users(pool)
     for user in users:
         try:
-            # 50% шанс использовать GPT
-            if random.random() > 0.5:
-                try:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",
-                        messages=[
-                            {"role": "system", "content": "Ты дружелюбный мотиватор."},
-                            {
-                                "role": "user",
-                                "content": "Придумай короткое напоминание для проверки прогресса. Максимум одно предложение, позитивное.",
-                            },
-                        ],
-                        max_tokens=50,
-                        temperature=0.8,
-                    )
-                    text = response.choices[0].message["content"].strip() # type: ignore
-                except Exception as e:
-                    logging.warning(f"Ошибка GPT: {e}. Использую заготовленный текст.")
-                    text = random.choice(REMINDER_TEXTS)
-            else:
-                text = random.choice(REMINDER_TEXTS)
-
-            await bot.send_message(user["user_id"], text)
+            await bot.send_message(user["user_id"], random.choice(REMINDER_TEXTS))
         except BotBlocked:
-            logging.warning(f"Пользователь {user['user_id']} заблокировал бота")
-        except Exception as e:
-            logging.error(
-                f"Ошибка отправки напоминания пользователю {user['user_id']}: {e}"
-            )
+            logging.warning(f"User {user['user_id']} заблокировал бота")
 
+# ✅ Ошибки
+@dp.errors_handler()
+async def error_handler(update, exception):
+    try:
+        await update.message.answer("⚠️ Ошибка. Обратитесь в поддержку.", reply_markup=support_button)
+    except:
+        pass
+    return True
 
-# ✅ Обновлённый on_startup
+# ✅ ON STARTUP
 async def on_startup(dp):
     global pool
     pool = await create_pool()
     await set_commands(bot)
-    logging.info("✅ Бот запущен")
-
-    # Планировщик
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        check_inactive_users, CronTrigger(hour=10)
-    )  # проверка активности утром
-    scheduler.add_job(send_reminders, CronTrigger(hour=18))  # напоминание вечером
+    scheduler.add_job(send_reminders, CronTrigger(hour=18))
     scheduler.start()
+    logging.info("✅ Бот запущен.")
 
-    logging.info("✅ Планировщик запущен: проверка в 10:00, напоминания в 18:00")
+# ✅ Webhook app
+app = get_new_configured_app(dispatcher=dp, path=WEBHOOK_PATH)
 
-REMINDER_TEXTS = [
-    "⏰ Проверь свой план! Делаешь успехи?",
-    "🔔 Не забывай про свои цели, ты справишься!",
-    "📅 Настало время проверить прогресс.",
-    "🔥 Ты молодец! Но цели сами не выполнятся!"
-]
+async def on_startup_webhook(app):
+    await bot.set_webhook(WEBHOOK_URL)
+    await on_startup(dp)
+    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
+
+async def on_shutdown_webhook(app):
+    await bot.delete_webhook()
+    logging.warning("Webhook удален.")
+
+app.on_startup.append(on_startup_webhook)
+app.on_shutdown.append(on_shutdown_webhook)
+
+# ✅ RUN
+if __name__ == "__main__":
+    web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
