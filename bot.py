@@ -7,7 +7,6 @@ import random
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 from config import BOT_TOKEN, OPENAI_API_KEY
-from aiogram.utils.executor import start_webhook
 import datetime
 from database import create_progress_stage  # type: ignore
 from database import (
@@ -28,6 +27,8 @@ from aiogram.utils.exceptions import TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from aiohttp import web
+from aiogram.utils.executor import start_webhook
+
 
 WEBHOOK_HOST = os.getenv(
     "WEBHOOK_HOST"
@@ -257,57 +258,15 @@ async def support_handler(message: Message):
     await message.reply(
         "Нужна помощь? Напиши в поддержку:", reply_markup=support_button
     )
-# ✅ Запасные сообщения для напоминаний
-REMINDER_TEXTS = [
-    "⏰ Проверь свой план! Делаешь успехи?",
-    "🔔 Не забывай про свои цели, ты справишься!",
-    "📅 Настало время проверить прогресс.",
-    "🔥 Ты молодец! Но цели сами не выполнятся!"
-]
 
-# ✅ GPT-3.5 для генерации креативных сообщений
-async def generate_reminder_message():
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Создай короткое мотивирующее напоминание для пользователя, чтобы он проверил выполнение плана."}
-            ],
-            max_tokens=50,
-            temperature=0.8,
-        )
-        text = response.choices[0].message["content"].strip()
-        return text
-    except Exception as e:
-        logging.warning(f"Ошибка GPT: {e}. Использую заготовленный текст.")
-        return random.choice(REMINDER_TEXTS)
-
-# ✅ Функция отправки напоминаний
-async def send_reminders():
-    try:
-        users = await get_active_users(pool) # type: ignore
-        for user in users:
-            try:
-                text = await generate_reminder_message()
-                await bot.send_message(user["user_id"], text)
-            except BotBlocked:
-                logging.warning(f"Пользователь {user['user_id']} заблокировал бота")
-            except Exception as e:
-                logging.error(f"Ошибка при отправке пользователю {user['user_id']}: {e}")
-    except Exception as e:
-        logging.error(f"Ошибка при получении пользователей: {e}")
 
 # 🔧 ON STARTUP
-async def on_startup(dp):
+async def on_startup(app):  # type: ignore
     global pool
     pool = await create_pool()
     await set_commands(bot)
-    logging.info("Bot: GPT-Assistant запущен")
-
-    # ✅ Планировщик
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, CronTrigger(hour=18))  # Каждый день в 18:00
-    scheduler.start()
+    await bot.set_webhook(WEBHOOK_URL)
+    logging.info("✅ Бот запущен через Webhook")
 
 
 # 🛑 ON SHUTDOWN
@@ -339,6 +298,7 @@ if __name__ == "__main__":
         host=WEBAPP_HOST,
         port=WEBAPP_PORT,
     )
+
 
 # /Прверка
 @dp.message_handler(commands=["check"])
@@ -458,4 +418,3 @@ REMINDER_TEXTS = [
     "📅 Настало время проверить прогресс.",
     "🔥 Ты молодец! Но цели сами не выполнятся!"
 ]
-
