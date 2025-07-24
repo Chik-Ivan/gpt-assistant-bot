@@ -120,10 +120,19 @@ async def create_next_stage(pool, user_id, stage):
 # -----------------------------
 # ✅ 5. Все пользователи (для напоминаний)
 # -----------------------------
-async def get_all_users(pool):
-    """Возвращает список всех user_id для рассылки напоминаний."""
+# ✅ Получаем всех пользователей для напоминаний
+async def get_users_for_reminder(pool):
+    """Пользователи, у которых есть незавершённые задания, дедлайн ближе 2 дней"""
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
+        return await conn.fetch("""
+            SELECT user_id FROM progress
+            WHERE completed = FALSE AND deadline > NOW() - INTERVAL '2 days'
+        """)
+
+# ✅ Все пользователи с доступом (для напоминаний)
+async def get_all_users(pool):
+    """Возвращает всех пользователей, у которых access = TRUE"""
+    async with pool.acquire() as conn:
+        return await conn.fetch("""
             SELECT user_id FROM users WHERE access = TRUE
         """)
-        return rows
