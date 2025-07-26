@@ -29,6 +29,7 @@ from database import (
     get_all_users,
 )
 from keyboards import support_button
+from database import add_points, get_progress
 
 # ✅ Webhook + WebApp config
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "https://gpt-assistant-bot-v.onrender.com")
@@ -65,6 +66,7 @@ async def set_commands(bot: Bot):
         BotCommand(command="plan", description="Показать план"),
         BotCommand(command="check", description="Проверить прогресс"),
         BotCommand(command="support", description="Написать в поддержку"),
+        BotCommand(command="progress", description="Показать мой прогресс")
     ]
     await bot.set_my_commands(commands)
 
@@ -166,8 +168,9 @@ async def handle_message(message: Message):
     if user_id in waiting_for_completion:
         if "да" in text.lower():
             await mark_progress_completed(pool, user_id, waiting_for_completion[user_id])
+            await add_points(pool, user_id, 10)  # ✅ Начисляем +10 баллов
             await create_next_stage(pool, user_id, waiting_for_completion[user_id] + 1)
-            await message.reply("🔥 Отлично! Идём дальше!")
+            await message.reply("🔥 Отлично! Ты получил +10 баллов! Идём дальше!")
         else:
             await message.reply("⚠️ Не сдавайся! Попробуем продолжить?")
         del waiting_for_completion[user_id]
@@ -206,6 +209,25 @@ async def check_handler(message: Message):
 @dp.message_handler(commands=["support"])
 async def support_handler(message: Message):
     await message.reply("Нужна помощь? Напиши сюда:", reply_markup=support_button)
+
+# ✅ Новый хендлер: проверка прогресса и баллов
+@dp.message_handler(commands=["progress"])
+async def progress_handler(message: Message):
+    user_id = message.from_user.id
+    data = await get_progress(pool, user_id)  # функция в database.py
+
+    progress_text = (
+        f"📊 Прогресс:\n"
+        f"✅ Выполнено: {data['completed']} из {data['total']} этапов\n"
+        f"🔥 Баллы: {data['points']}\n"
+    )
+
+    if data["next_deadline"]:
+        progress_text += f"📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}\n"
+
+    progress_text += "\nПродолжай, ты крутой! 💪"
+
+    await message.reply(progress_text)
 
 # ✅ Напоминания
 REMINDER_TEXTS = [

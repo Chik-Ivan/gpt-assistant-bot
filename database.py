@@ -182,3 +182,36 @@ async def get_all_users(pool):
     except Exception as e:
         logging.error(f"Ошибка get_all_users: {e}")
         return []
+    
+# ✅ Обновляем баллы пользователя
+async def add_points(pool, user_id: int, points: int):
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE users SET points = points + $1 WHERE user_id = $2",
+                points,
+                user_id
+            )
+    except Exception as e:
+        print(f"Ошибка add_points: {e}")
+
+# ✅ Получаем прогресс пользователя
+async def get_progress(pool, user_id: int):
+    try:
+        async with pool.acquire() as conn:
+            user = await conn.fetchrow("SELECT points FROM users WHERE user_id = $1", user_id)
+            progress = await conn.fetchrow("""
+                SELECT COUNT(*) FILTER (WHERE completed = TRUE) as completed,
+                       COUNT(*) as total,
+                       MIN(deadline) as next_deadline
+                FROM progress WHERE user_id = $1
+            """, user_id)
+            return {
+                "points": user["points"] if user else 0,
+                "completed": progress["completed"] or 0,
+                "total": progress["total"] or 0,
+                "next_deadline": progress["next_deadline"]
+            }
+    except Exception as e:
+        print(f"Ошибка get_progress: {e}")
+        return {"points": 0, "completed": 0, "total": 0, "next_deadline": None}
