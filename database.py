@@ -45,6 +45,7 @@ async def check_access(pool, user_id):
             row = await conn.fetchrow(
                 "SELECT access FROM users WHERE id = $1", user_id
             )
+            print(f"[DEBUG] check_access result: {row}")  # 👈 Лог
             return row["access"] if row else False
     except Exception as e:
         logging.error(f"Ошибка check_access: {e}")
