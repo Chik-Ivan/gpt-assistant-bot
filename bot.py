@@ -282,3 +282,22 @@ app.on_shutdown.append(on_shutdown_webhook)
 # ✅ RUN
 if __name__ == "__main__":
     web.run_app(app, host=WEBAPP_HOST, port=WEBAPP_PORT)
+
+        
+async def on_shutdown_webhook(dp):
+    logging.warning("Удаление webhook...")
+    await bot.delete_webhook()
+    await bot.session.close()  # ✅ фикс для ошибки Unclosed client session
+
+if __name__ == "__main__":
+    from aiogram.utils.executor import start_webhook
+
+    start_webhook(
+        dispatcher=dp,
+        webhook_path=WEBHOOK_PATH,
+        on_startup=on_startup_webhook,
+        on_shutdown=on_shutdown_webhook,
+        skip_updates=True,
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
+    ) 
