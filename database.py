@@ -23,12 +23,12 @@ async def upsert_user(pool, user_id, username, first_name):
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO users (id, username, first_name, access)
+                INSERT INTO users (user_id, username, first_name, access)
                 VALUES ($1, $2, $3, FALSE)
-                ON CONFLICT (id) DO UPDATE
+                ON CONFLICT (user_id) DO UPDATE
                 SET username = EXCLUDED.username,
                     first_name = EXCLUDED.first_name
-            """,
+                """,
                 user_id,
                 username,
                 first_name,
