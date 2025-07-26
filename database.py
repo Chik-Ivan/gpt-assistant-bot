@@ -1,198 +1,184 @@
-import asyncpg  # type: ignore
+import asyncpg
+import logging
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Создаём подключение (один раз при старте)
-import ssl
-import asyncpg  # type: ignore
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-
+# ✅ Подключение к базе данных
 async def create_pool():
-    ssl_context = ssl._create_unverified_context()
-    return await asyncpg.create_pool(dsn=DATABASE_URL, ssl=ssl_context)
+    """Создаёт подключение к базе данных PostgreSQL."""
+    try:
+        pool = await asyncpg.create_pool(DATABASE_URL)
+        logging.info("✅ Подключение к базе данных успешно!")
+        return pool
+    except Exception as e:
+        logging.error(f"Ошибка подключения к базе: {e}")
+        raise
 
 
-# Добавление или обновление пользователя
-async def upsert_user(pool, telegram_id: int, username: str, first_name: str):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO users (telegram_id, username, first_name, access)
-            VALUES ($1, $2, $3, false)  -- по умолчанию доступ закрыт
-            ON CONFLICT (telegram_id) DO UPDATE
-            SET username = $2, first_name = $3
-        """,
-            telegram_id,
-            username,
-            first_name,
-        )
+# ✅ 1. Добавление или обновление пользователя
+async def upsert_user(pool, user_id, username, first_name):
+    """Добавляет пользователя или обновляет его данные (если уже есть)."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO users (id, username, first_name, access)
+                VALUES ($1, $2, $3, FALSE)
+                ON CONFLICT (id) DO UPDATE
+                SET username = EXCLUDED.username,
+                    first_name = EXCLUDED.first_name
+            """,
+                user_id,
+                username,
+                first_name,
+            )
+    except Exception as e:
+        logging.error(f"Ошибка upsert_user: {e}")
 
 
-async def update_goal_and_plan(pool, telegram_id: int, goal: str, plan: str):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE users
-            SET goal = $1,
-                plan = $2
-            WHERE telegram_id = $3
-        """,
-            goal,
-            plan,
-            telegram_id,
-        )
+# ✅ 2. Проверка доступа
+async def check_access(pool, user_id):
+    """Проверяет, есть ли у пользователя доступ (True/False)."""
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT access FROM users WHERE id = $1", user_id
+            )
+            return row["access"] if row else False
+    except Exception as e:
+        logging.error(f"Ошибка check_access: {e}")
+        return False
 
 
-async def get_goal_and_plan(pool, telegram_id: int):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT goal, plan FROM users WHERE telegram_id = $1
-        """,
-            telegram_id,
-        )
-        return row["goal"], row["plan"] if row else ("", "")
+# ✅ 3. Сохранение цели и плана
+async def update_goal_and_plan(pool, user_id, goal, plan):
+    """Обновляет цель и план для пользователя."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE users
+                SET goal = $2, plan = $3
+                WHERE id = $1
+            """,
+                user_id,
+                goal,
+                plan,
+            )
+    except Exception as e:
+        logging.error(f"Ошибка update_goal_and_plan: {e}")
 
 
-# Обновление цели пользователя
-async def update_goal(pool, telegram_id: int, goal: str):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE users SET goal = $1 WHERE telegram_id = $2
-        """,
-            goal,
-            telegram_id,
-        )
+# ✅ 4. Получение цели и плана
+async def get_goal_and_plan(pool, user_id):
+    """Возвращает цель и план пользователя."""
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT goal, plan FROM users WHERE id = $1", user_id
+            )
+            return (row["goal"], row["plan"]) if row else (None, None)
+    except Exception as e:
+        logging.error(f"Ошибка get_goal_and_plan: {e}")
+        return (None, None)
 
 
-# Обновление плана
-async def update_plan(pool, telegram_id: int, plan: str):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE users SET plan = $1 WHERE telegram_id = $2
-        """,
-            plan,
-            telegram_id,
-        )
+# ✅ 5. Создание прогресса (этапа)
+async def create_progress_stage(pool, user_id, stage, deadline):
+    """Создаёт новый этап выполнения плана."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO progress (id_user, stage, deadline, completed, checked)
+                VALUES ($1, $2, $3, FALSE, FALSE)
+            """,
+                user_id,
+                stage,
+                deadline,
+            )
+    except Exception as e:
+        logging.error(f"Ошибка create_progress_stage: {e}")
 
 
-# Получение данных пользователя
-async def get_user(pool, telegram_id: int):
-    async with pool.acquire() as conn:
-        return await conn.fetchrow(
-            """
-            SELECT * FROM users WHERE telegram_id = $1
-        """,
-            telegram_id,
-        )
+# ✅ 6. Получение последнего этапа прогресса
+async def check_last_progress(pool, user_id):
+    """Возвращает последний этап прогресса пользователя."""
+    try:
+        async with pool.acquire() as conn:
+            return await conn.fetchrow(
+                """
+                SELECT stage, completed, checked
+                FROM progress
+                WHERE id_user = $1
+                ORDER BY stage DESC
+                LIMIT 1
+            """,
+                user_id,
+            )
+    except Exception as e:
+        logging.error(f"Ошибка check_last_progress: {e}")
+        return None
 
 
-# Проверка доступа
-async def has_access(pool, telegram_id: int) -> bool:
-    async with pool.acquire() as conn:
-        result = await conn.fetchval(
-            """
-            SELECT access FROM users WHERE telegram_id = $1
-        """,
-            telegram_id,
-        )
-        return bool(result) if result is not None else False
+# ✅ 7. Отметить этап завершённым
+async def mark_progress_completed(pool, user_id, stage):
+    """Отмечает этап как завершённый."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE progress
+                SET completed = TRUE, checked = TRUE
+                WHERE id_user = $1 AND stage = $2
+            """,
+                user_id,
+                stage,
+            )
+    except Exception as e:
+        logging.error(f"Ошибка mark_progress_completed: {e}")
 
 
-async def check_access(pool, telegram_id: int) -> bool:
-    async with pool.acquire() as conn:
-        result = await conn.fetchrow(
-            "SELECT access FROM users WHERE telegram_id = $1", telegram_id
-        )
-        return result and result["access"]
-
-    # Сохранение нового этапа прогресса
-
-
-async def create_progress_stage(pool, telegram_id: int, stage: int, deadline: str):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO progress (telegram_id, stage, deadline)
-            VALUES ($1, $2, $3)
-        """,
-            telegram_id,
-            stage,
-            deadline,
-        )
+# ✅ 8. Создать следующий этап
+async def create_next_stage(pool, user_id, stage):
+    """Создаёт новый этап (stage+1) с дедлайном через 7 дней."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO progress (id_user, stage, deadline, completed, checked)
+                VALUES ($1, $2, NOW() + INTERVAL '7 days', FALSE, FALSE)
+            """,
+                user_id,
+                stage,
+            )
+    except Exception as e:
+        logging.error(f"Ошибка create_next_stage: {e}")
 
 
-# Получить последний прогресс (этап)
-async def check_last_progress(pool, telegram_id: int):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT * FROM progress
-            WHERE telegram_id = $1
-            ORDER BY stage DESC
-            LIMIT 1
-        """,
-            telegram_id,
-        )
-        return row  # вернёт словарь: stage, deadline, completed и т.д.
-
-
-# Отметить текущий этап как завершённый
-async def mark_progress_completed(pool, telegram_id: int, stage: int):
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE progress
-            SET completed = true, checked = true
-            WHERE telegram_id = $1 AND stage = $2
-        """,
-            telegram_id,
-            stage,
-        )
-
-
-# Создать следующий этап (следующую неделю)
-async def create_next_stage(pool, telegram_id: int, stage: int, days: int = 7):
-    import datetime
-
-    deadline = datetime.datetime.now() + datetime.timedelta(days=days)
-    deadline_str = deadline.strftime("%Y-%m-%d %H:%M:%S")
-
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO progress (telegram_id, stage, deadline)
-            VALUES ($1, $2, $3)
-        """,
-            telegram_id,
-            stage,
-            deadline_str,
-        )
-
-
+# ✅ 9. Получение пользователей для напоминаний
 async def get_users_for_reminder(pool):
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
+    """Возвращает пользователей с незавершённым прогрессом (для напоминаний)."""
+    try:
+        async with pool.acquire() as conn:
+            return await conn.fetch(
+                """
+                SELECT id_user FROM progress
+                WHERE completed = FALSE AND deadline > NOW() - INTERVAL '2 days'
             """
-            SELECT user_id FROM progress
-            WHERE completed = false AND checked = false AND deadline < NOW() - interval '2 days'
-        """
-        )
-        return [row["user_id"] for row in rows]
+            )
+    except Exception as e:
+        logging.error(f"Ошибка get_users_for_reminder: {e}")
+        return []
 
 
+# ✅ 10. Получение всех пользователей
 async def get_all_users(pool):
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT user_id FROM users WHERE access = true")
-        return [dict(row) for row in rows]
+    """Возвращает всех пользователей (список id)."""
+    try:
+        async with pool.acquire() as conn:
+            return await conn.fetch("SELECT id FROM users WHERE access = TRUE")
+    except Exception as e:
+        logging.error(f"Ошибка get_all_users: {e}")
+        return []
