@@ -14,8 +14,8 @@ from database import (
 # ✅ ENV
 TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Пример: https://gpt-assistant-bot-v.onrender.com
-WEBHOOK_URL = f"{WEBHOOK_HOST}/{TOKEN}"  # ✅ Возвращаем твою рабочую схему
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Например: gpt-assistant-bot-v.onrender.com
+WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{TOKEN}"  # ✅ Автоматически добавляем https://
 
 WEBAPP_HOST = "0.0.0.0"
 WEBAPP_PORT = int(os.getenv("PORT", 8080))
@@ -158,7 +158,7 @@ async def on_shutdown(dp):
 if __name__ == "__main__":
     start_webhook(
         dispatcher=dp,
-        webhook_path=f"/{TOKEN}",  # ✅ как в твоем старом коде
+        webhook_path=f"/{TOKEN}",  # ✅ Aiogram будет слушать по токену
         on_startup=on_startup,
         on_shutdown=on_shutdown,
         skip_updates=True,
