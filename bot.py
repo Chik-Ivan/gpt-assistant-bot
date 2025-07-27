@@ -1,171 +1,239 @@
+# -*- coding: utf-8 -*-
+import sys
+import logging
+import openai
 import os
 import random
-import openai
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+import datetime
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message, BotCommand
 from aiogram.utils.executor import start_webhook
+from aiogram.utils.exceptions import BotBlocked, TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from config import BOT_TOKEN, OPENAI_API_KEY
 from database import (
-    create_pool, save_user, check_access,
-    get_goal, get_plan, save_goal, save_plan,
-    get_progress, get_users_for_reminder, update_last_reminder
+    create_pool,
+    upsert_user,
+    check_access,
+    update_goal_and_plan,
+    get_goal_and_plan,
+    create_progress_stage,
+    mark_progress_completed,
+    create_next_stage,
+    check_last_progress,
+    get_progress,
+    get_users_for_reminder
 )
+from keyboards import support_button
 
-TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_KEY
-
-WEBHOOK_HOST = os.getenv("WEBHOOK_URL")
-WEBHOOK_PATH = "/webhook"
+# Webhook config
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
-
 WEBAPP_HOST = "0.0.0.0"
-WEBAPP_PORT = int(os.getenv("PORT", 8080))
+WEBAPP_PORT = int(os.getenv("PORT", 10000))
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
-scheduler = AsyncIOScheduler()
+sys.stdout.reconfigure(encoding="utf-8")
 
-REMINDER_TEXTS = [
-    "Не забывайте о ваших целях! Как продвигаетесь?",
-    "Помните, маленькие шаги приводят к большим результатам!",
-    "Сегодня отличный день, чтобы выполнить часть плана!"
-]
-
-SYSTEM_PROMPT = """
-"Ты — личный ассистент-кондитера. Твоя задача — помочь пользователю определить и сформулировать свою цель по доходу, выявить сложности и ресурсы, и составить чёткий пошаговый план.\n\n"
-    "Действуй по следующей логике:\n"
-    "1. Выясни, кто перед тобой (новичок, профи, ученик и т.д.)\n"
-    "2. Узнай, чего он хочет достичь (в деньгах, уровне, статусе)\n"
-    "3. Выяви барьеры и страхи, которые мешают двигаться\n"
-    "4. Спроси, сколько времени в неделю он может уделять\n"
-    "5. Уточни желаемый срок достижения цели (в неделях или месяцах)\n\n"
-    "После этого:\n"
-    "- Чётко сформулируй его ЦЕЛЬ\n"
-    "- Разбей путь на недели\n"
-    "- В каждой неделе запланируй 3 действия: Контент, Продукт, Продажи\n\n"
-    "Важно:\n"
-    "- Задавай по 1 вопросу за раз\n"
-    "- Не спеши, сначала собери информацию\n"
-    "- После плана скажи: «Я буду присылать тебе каждую неделю план. Не сливайся»\n\n"
-    "Первое сообщение должно быть вдохновляющим: поприветствуй, объясни свою роль, предложи начать.\n"
-    "**После слов “Начнём?” дождись ответа пользователя, прежде чем задать следующий вопрос.**\n\n"
-    "Говори на русском, дружелюбно, уверенно. Не отпускай пользователя. Веди его до конца."
-"""
-
-support_btn = InlineKeyboardMarkup().add(
-    InlineKeyboardButton("Написать в поддержку", url="https://t.me/Abramova_school_support")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 
-# ✅ GPT: Напоминание
-async def generate_reminder_message():
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot)
+openai.api_key = OPENAI_API_KEY
+
+# ✅ Команды
+async def set_commands(bot: Bot):
+    commands = [
+        BotCommand(command="start", description="Начать работу"),
+        BotCommand(command="goal", description="Моя цель"),
+        BotCommand(command="plan", description="Мой план"),
+        BotCommand(command="progress", description="Мой прогресс"),
+        BotCommand(command="support", description="Поддержка"),
+        BotCommand(command="test_reminder", description="Тест напоминания"),
+    ]
+    await bot.set_my_commands(commands)
+
+# ==========================
+# Глобальные переменные
+dialogues = {}
+waiting_for_days = {}
+waiting_for_completion = {}
+pool = None
+
+# ✅ System Prompt
+system_prompt = (
+    "Ты — личный ассистент-кондитера. Помогаешь ставить цели, выявлять барьеры, строить план.\n"
+    "Логика: выясни уровень пользователя, цель (в деньгах), сроки. Составь план по неделям.\n"
+    "Говори дружелюбно и вдохновляюще."
+)
+
+# ==========================
+# Функции GPT
+def extract_between(text, start, end):
+    try:
+        return text.split(start)[1].split(end)[0]
+    except IndexError:
+        return ""
+
+def extract_days(text: str) -> int:
+    import re
+    numbers = re.findall(r"\d+", text)
+    return int(numbers[0]) if numbers else 7
+
+async def chat_with_gpt(user_id: int, user_input: str) -> str:
+    if user_id not in dialogues:
+        dialogues[user_id] = [{"role": "system", "content": system_prompt}]
+    dialogues[user_id].append({"role": "user", "content": user_input})
+
     try:
         response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=dialogues[user_id],
+            temperature=0.7
+        )
+        reply = response["choices"][0]["message"]["content"]
+        dialogues[user_id].append({"role": "assistant", "content": reply})
+
+        if "Цель:" in reply and "План действий" in reply:
+            goal = extract_between(reply, "Цель:", "План действий").strip()
+            plan = reply.split("План действий:")[-1].strip()
+            await update_goal_and_plan(pool, user_id, goal, plan)
+            deadline = (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            await create_progress_stage(pool, user_id, 1, deadline)
+
+        return reply
+    except Exception as e:
+        return f"Ошибка GPT: {e}"
+
+# ==========================
+# ✅ Хэндлеры команд
+@dp.message_handler(commands=["start"])
+async def start_handler(message: Message):
+    user_id = message.from_user.id
+    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
+
+    if not await check_access(pool, user_id):
+        await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
+        return
+
+    dialogues[user_id] = [{"role": "system", "content": system_prompt}]
+    await message.reply(await chat_with_gpt(user_id, "Начни диалог"))
+
+@dp.message_handler(commands=["goal"])
+async def goal_handler(message: Message):
+    goal, _ = await get_goal_and_plan(pool, message.from_user.id)
+    await message.reply(f"🎯 Цель:\n{goal}" if goal else "Цель не сохранена.")
+
+@dp.message_handler(commands=["plan"])
+async def plan_handler(message: Message):
+    _, plan = await get_goal_and_plan(pool, message.from_user.id)
+    await message.reply(f"📅 План:\n{plan}" if plan else "План не сохранён.")
+
+@dp.message_handler(commands=["progress"])
+async def progress_handler(message: Message):
+    data = await get_progress(pool, message.from_user.id)
+    text = (
+        f"📊 Прогресс:\n"
+        f"✅ Выполнено: {data['completed']} из {data['total']} этапов\n"
+        f"🔥 Баллы: {data['points']}\n"
+    )
+    if data["next_deadline"]:
+        text += f"📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}"
+    await message.reply(text)
+
+@dp.message_handler(commands=["support"])
+async def support_handler(message: Message):
+    await message.reply("Нужна помощь? Напиши в поддержку 👇", reply_markup=support_button)
+
+# ✅ Общий обработчик
+@dp.message_handler()
+async def handle_chat(message: Message):
+    user_id = message.from_user.id
+    if not await check_access(pool, user_id):
+        await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
+        return
+    text = message.text
+    if waiting_for_days.get(user_id):
+        days = extract_days(text)
+        deadline = datetime.datetime.now() + datetime.timedelta(days=days)
+        await create_progress_stage(pool, user_id, 1, deadline.strftime("%Y-%m-%d %H:%M:%S"))
+        await message.reply(f"✅ План установлен на {days} дней.")
+        waiting_for_days[user_id] = False
+        return
+    if user_id in waiting_for_completion:
+        if "да" in text.lower():
+            await mark_progress_completed(pool, user_id, waiting_for_completion[user_id])
+            await create_next_stage(pool, user_id, waiting_for_completion[user_id] + 1)
+            await message.reply("🔥 Отлично! Продолжаем!")
+        else:
+            await message.reply("Понимаю. Продолжай стараться!")
+        del waiting_for_completion[user_id]
+        return
+    response = await chat_with_gpt(user_id, text)
+    await message.reply(response)
+    if any(word in response.lower() for word in ["срок", "дедлайн"]):
+        waiting_for_days[user_id] = True
+
+# ==========================
+# ✅ Напоминания
+REMINDER_TEXTS = [
+    "⏰ Проверь свой план! Делаешь успехи?",
+    "🔔 Не забывай про свои цели!",
+    "📅 Время проверить прогресс.",
+    "🔥 Ты молодец! Но цели сами не выполнятся!"
+]
+
+async def generate_reminder_message():
+    try:
+        resp = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Ты дружелюбный ассистент."},
-                {"role": "user", "content": "Напомни пользователю про выполнение задач."}
+                {"role": "system", "content": "Ты дружелюбный мотиватор."},
+                {"role": "user", "content": "Создай короткое напоминание (одно предложение)."}
             ],
-            temperature=0.8
+            max_tokens=50, temperature=0.8
         )
-        return response["choices"][0]["message"]["content"].strip()
+        return resp["choices"][0]["message"]["content"].strip()
     except:
         return random.choice(REMINDER_TEXTS)
 
-# ✅ GPT: Генерация цели и плана
-async def generate_goal_and_plan(user_text: str):
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Моя цель: {user_text}"}
-        ],
-        temperature=0.7
-    )
-    return response["choices"][0]["message"]["content"].strip()
-
-# ✅ Напоминания
 async def send_reminders():
-    pool = await create_pool()
-    users = await get_users_for_reminder(pool)
-    for user in users:
-        if random.random() < 0.4:  # ~3 раза в неделю
-            try:
-                text = await generate_reminder_message()
-                await bot.send_message(user["telegram_id"], text)
-                await update_last_reminder(pool, user["telegram_id"])
-            except Exception as e:
-                print(f"Ошибка при отправке напоминания {user['telegram_id']}: {e}")
+    try:
+        users = await get_users_for_reminder(pool)
+        for user in users:
+            # ✅ Рандомизация: шанс 40%, чтобы не спамить каждый день
+            if random.random() < 0.4:
+                text = await generate_reminder_message() if random.random() > 0.5 else random.choice(REMINDER_TEXTS)
+                await bot.send_message(user["user_id"], text)
+    except Exception as e:
+        logging.error(f"Ошибка при отправке напоминаний: {e}")
 
-scheduler.add_job(send_reminders, "cron", hour="10,18")  # 2 раза в день проверка
-async def on_startup(dp):
-    scheduler.start()
-    await bot.set_webhook(WEBHOOK_URL)
-
-# ✅ /start
-@dp.message_handler(commands=["start"])
-async def start_cmd(message: types.Message):
-    pool = await create_pool()
-    await save_user(pool, str(message.from_user.id), message.from_user.username, message.from_user.first_name, message.from_user.id)
-    access = await check_access(pool, str(message.from_user.id))
-
-    if not access:
-        await message.answer("У вас нет доступа. Напишите в поддержку.", reply_markup=support_btn)
-        return
-
-    await message.answer("Привет! Напиши свою цель, и я помогу составить план.")
-
-# ✅ Обработка текста цели
-@dp.message_handler(lambda m: not m.text.startswith('/'))
-async def handle_goal_text(message: types.Message):
-    pool = await create_pool()
-    text = message.text
-    await message.answer("Генерирую план...")
-
-    goal_and_plan = await generate_goal_and_plan(text)
-    await save_goal(pool, str(message.from_user.id), text)
-    await save_plan(pool, str(message.from_user.id), goal_and_plan)
-
-    await message.answer(f"✅ Цель сохранена!\n\n{goal_and_plan}")
-
-# ✅ /goal
-@dp.message_handler(commands=["goal"])
-async def goal_cmd(message: types.Message):
-    pool = await create_pool()
-    goal = await get_goal(pool, str(message.from_user.id))
-    await message.answer(f"Ваша цель:\n{goal}" if goal else "Цель пока не задана.")
-
-# ✅ /plan
-@dp.message_handler(commands=["plan"])
-async def plan_cmd(message: types.Message):
-    pool = await create_pool()
-    plan = await get_plan(pool, str(message.from_user.id))
-    await message.answer(f"Ваш план:\n{plan}" if plan else "План пока не создан.")
-
-# ✅ /progress
-@dp.message_handler(commands=["progress"])
-async def progress_cmd(message: types.Message):
-    pool = await create_pool()
-    progress = await get_progress(pool, message.from_user.id)
-    total = progress["total"]
-    completed = progress["completed"]
-    points = progress["points"]
-    percent = int((completed / total) * 100) if total > 0 else 0
-    bar = "█" * (percent // 10) + "░" * (10 - percent // 10)
-    await message.answer(f"📊 Прогресс:\n{bar} {percent}%\n✅ Этапы: {completed}/{total}\n🔥 Баллы: {points}")
-
-# ✅ /test_reminder (для теста)
 @dp.message_handler(commands=["test_reminder"])
-async def test_reminder(message: types.Message):
-    text = await generate_reminder_message()
-    await message.answer(text)
+async def test_reminder(message: Message):
+    await send_reminders()
+    await message.reply("✅ Напоминания отправлены!")
 
+# ==========================
+# ✅ ON STARTUP
 async def on_startup(dp):
+    global pool
+    pool = await create_pool()
+    await set_commands(bot)
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(send_reminders, CronTrigger(hour="10,18"))  # Утро и вечер
     scheduler.start()
     await bot.set_webhook(WEBHOOK_URL)
+    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
 
 async def on_shutdown(dp):
     await bot.delete_webhook()
+    await bot.session.close()
+    logging.warning("Webhook удалён.")
 
 if __name__ == "__main__":
     start_webhook(
@@ -174,6 +242,6 @@ if __name__ == "__main__":
         on_startup=on_startup,
         on_shutdown=on_shutdown,
         skip_updates=True,
-        host="0.0.0.0",
-        port=WEBAPP_PORT
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
     )
