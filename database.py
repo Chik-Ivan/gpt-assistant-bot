@@ -4,7 +4,8 @@ import logging
 # ✅ Создаём подключение к базе
 async def create_pool():
     try:
-        pool = await asyncpg.create_pool(dsn="YOUR_DATABASE_URL", ssl="require")
+        DATABASE_URL = os.getenv("DATABASE_URL")
+        pool = await asyncpg.create_pool(dsn=DATABASE_URL, ssl="require")
         logging.info("✅ Подключение к базе данных успешно!")
         return pool
     except Exception as e:
