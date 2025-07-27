@@ -2,6 +2,7 @@ import os
 import random
 import openai
 import asyncio
+from aiogram.dispatcher.webhook import SendMessage
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.executor import start_webhook
@@ -104,8 +105,9 @@ async def start_cmd(message: types.Message):
 # ✅ Обработка текста цели (фоновая задача для GPT)
 @dp.message_handler(lambda m: not m.text.startswith('/'))
 async def handle_goal_text(message: types.Message):
-    await message.answer("Генерирую план...")
+    # Telegram сразу получит 200 OK
     asyncio.create_task(process_goal(message))
+    return SendMessage(message.chat.id, "Генерирую план...")
 
 async def process_goal(message: types.Message):
     try:
