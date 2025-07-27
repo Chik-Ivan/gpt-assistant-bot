@@ -197,6 +197,7 @@ async def goal_handler(message: Message):
 async def plan_handler(message: Message):
     _, plan = await get_goal_and_plan(pool, message.from_user.id)
     await message.reply(f"📅 План:\n{plan}" if plan else "План ещё не составлен.")
+    
 
 # ✅ /progress
 @dp.message_handler(commands=["progress"])
@@ -212,6 +213,22 @@ async def progress_handler(message: Message):
         progress_text += f"📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}\n"
     await message.reply(progress_text)
 
+
+# ✅ /support
+@dp.message_handler(commands=["support"])
+async def support_handler(message: Message):
+    await message.reply(
+        "Нужна помощь? Напиши в поддержку 👇",
+        reply_markup=support_button
+    )
+
+# ✅ Общий обработчик сообщений (GPT)
+@dp.message_handler()
+async def handle_chat(message: Message):
+    user_id = message.from_user.id
+    text = message.text
+    
+    
 # ✅ Напоминания
 REMINDER_TEXTS = [
     "⏰ Проверь свой план!",
