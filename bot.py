@@ -205,16 +205,50 @@ async def handle_chat(message: Message):
     if any(word in response.lower() for word in ["срок", "график", "дедлайн"]):
         waiting_for_days[user_id] = True
 
-# ✅ Напоминания
+# ✅ Запасные тексты напоминаний
+REMINDER_TEXTS = [
+    "⏰ Проверь свой план! Делаешь успехи?",
+    "🔔 Не забывай про свои цели, ты справишься!",
+    "📅 Настало время проверить прогресс.",
+    "🔥 Ты молодец! Но цели сами не выполнятся!"
+]
+
+# ✅ Генерация напоминания через GPT-3.5
+async def generate_reminder_message():
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Ты дружелюбный мотиватор."},
+                {"role": "user", "content": "Создай короткое мотивирующее напоминание для проверки плана. Максимум одно предложение."}
+            ],
+            max_tokens=50,
+            temperature=0.8,
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logging.warning(f"Ошибка GPT: {e}. Использую заготовленный текст.")
+        return random.choice(REMINDER_TEXTS)
+
+# ✅ Основная функция отправки напоминаний
 async def send_reminders():
-    users = await get_all_users(pool)
-    for user in users:
-        try:
-            await bot.send_message(user["id"], "⏰ Напоминаю! Проверь свой план!")
-        except BotBlocked:
-            logging.warning(f"Пользователь {user['id']} заблокировал бота")
-        except Exception as e:
-            logging.error(f"Ошибка отправки: {e}")
+    try:
+        users = await get_all_users(pool)  # список пользователей
+        for user in users:
+            try:
+                # 50% шанс использовать GPT
+                if random.random() > 0.5:
+                    text = await generate_reminder_message()
+                else:
+                    text = random.choice(REMINDER_TEXTS)
+
+                await bot.send_message(user["id"], text)
+            except BotBlocked:
+                logging.warning(f"Пользователь {user['id']} заблокировал бота")
+            except Exception as e:
+                logging.error(f"Ошибка при отправке пользователю {user['id']}: {e}")
+    except Exception as e:
+        logging.error(f"Ошибка при получении пользователей: {e}")
 
 # ✅ ON STARTUP
 async def on_startup(dp):
