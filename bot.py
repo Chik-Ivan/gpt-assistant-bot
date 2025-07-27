@@ -1,5 +1,4 @@
 import os
-import asyncio
 import random
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,13 +8,12 @@ from openai import OpenAI
 from database import (
     create_pool, save_user, check_access,
     get_goal, get_plan, save_goal, save_plan,
-    add_progress_stage, get_active_stages,
-    get_users_for_reminder, update_last_reminder
+    get_progress, get_users_for_reminder, update_last_reminder
 )
 
 TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_HOST = os.getenv("WEBHOOK_URL")  # например: https://your-app.onrender.com
+WEBHOOK_HOST = os.getenv("WEBHOOK_URL")
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
@@ -58,14 +56,14 @@ support_btn = InlineKeyboardMarkup().add(
     InlineKeyboardButton("Написать в поддержку", url="https://t.me/Abramova_school_support")
 )
 
-# ✅ GPT: Генерация напоминания
+# ✅ GPT: Напоминание
 async def generate_reminder_message():
     try:
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Ты дружелюбный ассистент."},
-                {"role": "user", "content": "Напомни пользователю про выполнение задач в дружелюбной форме."}
+                {"role": "user", "content": "Напомни пользователю про выполнение задач."}
             ],
             temperature=0.8
         )
@@ -89,24 +87,23 @@ async def generate_goal_and_plan(user_text: str):
 async def send_reminders():
     pool = await create_pool()
     users = await get_users_for_reminder(pool)
-
     for user in users:
-        if random.random() < 0.4:  # ~40% шанс
+        if random.random() < 0.4:  # ~3 раза в неделю
             try:
                 text = await generate_reminder_message()
-                await bot.send_message(user["id"], text)
-                await update_last_reminder(pool, user["id"])
+                await bot.send_message(user["telegram_id"], text)
+                await update_last_reminder(pool, user["telegram_id"])
             except Exception as e:
-                print(f"Ошибка при отправке напоминания {user['id']}: {e}")
+                print(f"Ошибка при отправке напоминания {user['telegram_id']}: {e}")
 
-scheduler.add_job(send_reminders, "interval", days=1, hour=12)
+scheduler.add_job(send_reminders, "cron", hour="10,18")  # 2 раза в день проверка
 scheduler.start()
 
 # ✅ /start
 @dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
     pool = await create_pool()
-    await save_user(pool, str(message.from_user.id), message.from_user.username, message.from_user.first_name)
+    await save_user(pool, str(message.from_user.id), message.from_user.username, message.from_user.first_name, message.from_user.id)
     access = await check_access(pool, str(message.from_user.id))
 
     if not access:
@@ -120,7 +117,6 @@ async def start_cmd(message: types.Message):
 async def handle_goal_text(message: types.Message):
     pool = await create_pool()
     text = message.text
-
     await message.answer("Генерирую план...")
 
     goal_and_plan = await generate_goal_and_plan(text)
@@ -143,13 +139,25 @@ async def plan_cmd(message: types.Message):
     plan = await get_plan(pool, str(message.from_user.id))
     await message.answer(f"Ваш план:\n{plan}" if plan else "План пока не создан.")
 
-# ✅ /test_reminder
+# ✅ /progress
+@dp.message_handler(commands=["progress"])
+async def progress_cmd(message: types.Message):
+    pool = await create_pool()
+    progress = await get_progress(pool, message.from_user.id)
+    total = progress["total"]
+    completed = progress["completed"]
+    points = progress["points"]
+    percent = int((completed / total) * 100) if total > 0 else 0
+    bar = "█" * (percent // 10) + "░" * (10 - percent // 10)
+    await message.answer(f"📊 Прогресс:\n{bar} {percent}%\n✅ Этапы: {completed}/{total}\n🔥 Баллы: {points}")
+
+# ✅ /test_reminder (для теста)
 @dp.message_handler(commands=["test_reminder"])
 async def test_reminder(message: types.Message):
     text = await generate_reminder_message()
     await message.answer(text)
 
-# ✅ Webhook on Render
+# ✅ Webhook
 async def on_startup(dp):
     await bot.set_webhook(WEBHOOK_URL)
 
@@ -163,6 +171,6 @@ if __name__ == "__main__":
         on_startup=on_startup,
         on_shutdown=on_shutdown,
         skip_updates=True,
-        host=WEBAPP_HOST,
+        host="0.0.0.0",
         port=WEBAPP_PORT
     )
