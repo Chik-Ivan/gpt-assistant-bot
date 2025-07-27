@@ -2,8 +2,6 @@ import os
 import random
 import openai
 import asyncio
-
-from aiogram.dispatcher.webhook import SendMessage
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.executor import start_webhook
@@ -17,7 +15,7 @@ from database import (
 # ✅ ENV
 TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Например: gpt-assistant-bot-v.onrender.com
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Пример: gpt-assistant-bot-v.onrender.com
 WEBHOOK_URL = f"https://{WEBHOOK_HOST}/{TOKEN}"  # ✅ Автоматически добавляем https://
 
 WEBAPP_HOST = "0.0.0.0"
@@ -74,7 +72,7 @@ async def generate_goal_and_plan(user_text: str):
     )
     return response["choices"][0]["message"]["content"].strip()
 
-# ✅ Напоминания (только для тех, у кого есть план)
+# ✅ Напоминания
 async def send_reminders():
     pool = await create_pool()
     users = await get_users_for_reminder(pool)
@@ -103,7 +101,7 @@ async def start_cmd(message: types.Message):
 
     await message.answer("Привет! Напиши свою цель, и я помогу составить план.")
 
-# ✅ Обработка текста цели
+# ✅ Обработка текста цели (фоновая задача для GPT)
 @dp.message_handler(lambda m: not m.text.startswith('/'))
 async def handle_goal_text(message: types.Message):
     await message.answer("Генерирую план...")
@@ -120,7 +118,7 @@ async def process_goal(message: types.Message):
 
         await bot.send_message(message.chat.id, f"✅ Цель сохранена!\n\n{goal_and_plan}")
     except Exception as e:
-        await bot.send_message(message.chat.id, f"Произошла ошибка: {e}")
+        await bot.send_message(message.chat.id, f"Ошибка при генерации плана: {e}")
 
 # ✅ /goal
 @dp.message_handler(commands=["goal"])
@@ -154,7 +152,7 @@ async def test_reminder(message: types.Message):
     text = await generate_reminder_message()
     await message.answer(text)
 
-# ✅ Webhook запуск
+# ✅ Webhook
 async def on_startup(dp):
     print(f"✅ Устанавливаем webhook: {WEBHOOK_URL}")
     scheduler.start()
@@ -167,7 +165,7 @@ async def on_shutdown(dp):
 if __name__ == "__main__":
     start_webhook(
         dispatcher=dp,
-        webhook_path=f"/{TOKEN}",  # ✅ Aiogram будет слушать по токену
+        webhook_path=f"/{TOKEN}",
         on_startup=on_startup,
         on_shutdown=on_shutdown,
         skip_updates=True,
