@@ -98,7 +98,9 @@ async def send_reminders():
                 print(f"Ошибка при отправке напоминания {user['telegram_id']}: {e}")
 
 scheduler.add_job(send_reminders, "cron", hour="10,18")  # 2 раза в день проверка
-scheduler.start()
+async def on_startup(dp):
+    scheduler.start()
+    await bot.set_webhook(WEBHOOK_URL)
 
 # ✅ /start
 @dp.message_handler(commands=["start"])
@@ -159,6 +161,7 @@ async def test_reminder(message: types.Message):
     await message.answer(text)
 
 async def on_startup(dp):
+    scheduler.start()
     await bot.set_webhook(WEBHOOK_URL)
 
 async def on_shutdown(dp):
