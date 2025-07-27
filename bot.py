@@ -233,20 +233,21 @@ async def generate_reminder_message():
 # ✅ Основная функция отправки напоминаний
 async def send_reminders():
     try:
-        users = await get_all_users(pool)  # список пользователей
+        users = await get_all_users(pool)  # Возвращает user_id из БД
         for user in users:
             try:
-                # 50% шанс использовать GPT
+                # 50% шанс использовать GPT для креатива
                 if random.random() > 0.5:
                     text = await generate_reminder_message()
                 else:
                     text = random.choice(REMINDER_TEXTS)
 
-                await bot.send_message(user["id"], text)
+                # ✅ Используем user_id, а не id
+                await bot.send_message(user["user_id"], text)
             except BotBlocked:
-                logging.warning(f"Пользователь {user['id']} заблокировал бота")
+                logging.warning(f"Пользователь {user['user_id']} заблокировал бота")
             except Exception as e:
-                logging.error(f"Ошибка при отправке пользователю {user['id']}: {e}")
+                logging.error(f"Ошибка при отправке пользователю {user['user_id']}: {e}")
     except Exception as e:
         logging.error(f"Ошибка при получении пользователей: {e}")
 
