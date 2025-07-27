@@ -94,7 +94,7 @@ scheduler.add_job(send_reminders, "cron", hour="10,18")
 async def start_cmd(message: types.Message):
     pool = await create_pool()
     await save_user(pool, message.from_user.username, message.from_user.first_name, message.from_user.id)
-    access = await check_access(pool, str(message.from_user.id))
+    access = await check_access(pool, message.from_user.id)
 
     if not access:
         await message.answer("У вас нет доступа. Напишите в поддержку.", reply_markup=support_btn)

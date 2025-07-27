@@ -1,49 +1,44 @@
 import os
 import asyncpg
-import uuid
-from typing import List, Dict, Optional
+from typing import Optional, List, Dict
 from datetime import datetime
+import uuid
 
 async def create_pool():
     return await asyncpg.create_pool(dsn=os.getenv("DATABASE_URL"))
 
-# ✅ Сохранение пользователя
 async def save_user(pool, username: str, first_name: str, telegram_id: int):
     async with pool.acquire() as conn:
-        user_uuid = str(uuid.uuid4())  # генерируем UUID
+        user_uuid = str(uuid.uuid4())
         await conn.execute("""
             INSERT INTO users (id, username, first_name, access, points, goal, plan, telegram_id)
             VALUES ($1, $2, $3, FALSE, 0, NULL, NULL, $4)
             ON CONFLICT (telegram_id) DO NOTHING
         """, user_uuid, username, first_name, telegram_id)
 
-# ✅ Проверка доступа
-async def check_access(pool, uuid: str) -> bool:
+async def check_access(pool, telegram_id: int) -> bool:
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT access FROM users WHERE id = $1", uuid)
+        row = await conn.fetchrow("SELECT access FROM users WHERE telegram_id = $1", telegram_id)
         return row["access"] if row else False
 
-# ✅ Цель
-async def get_goal(pool, uuid: str) -> Optional[str]:
+async def get_goal(pool, telegram_id: int) -> Optional[str]:
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT goal FROM users WHERE id = $1", uuid)
+        row = await conn.fetchrow("SELECT goal FROM users WHERE telegram_id = $1", telegram_id)
         return row["goal"] if row else None
 
-async def save_goal(pool, uuid: str, goal: str):
+async def save_goal(pool, telegram_id: int, goal: str):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE users SET goal = $1 WHERE id = $2", goal, uuid)
+        await conn.execute("UPDATE users SET goal = $1 WHERE telegram_id = $2", goal, telegram_id)
 
-# ✅ План
-async def get_plan(pool, uuid: str) -> Optional[str]:
+async def get_plan(pool, telegram_id: int) -> Optional[str]:
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT plan FROM users WHERE id = $1", uuid)
+        row = await conn.fetchrow("SELECT plan FROM users WHERE telegram_id = $1", telegram_id)
         return row["plan"] if row else None
 
-async def save_plan(pool, uuid: str, plan: str):
+async def save_plan(pool, telegram_id: int, plan: str):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE users SET plan = $1 WHERE id = $2", plan, uuid)
+        await conn.execute("UPDATE users SET plan = $1 WHERE telegram_id = $2", plan, telegram_id)
 
-# ✅ Прогресс
 async def get_progress(pool, telegram_id: int) -> Dict:
     async with pool.acquire() as conn:
         total = await conn.fetchval("SELECT COUNT(*) FROM progress WHERE telegram_id = $1", telegram_id)
@@ -51,7 +46,6 @@ async def get_progress(pool, telegram_id: int) -> Dict:
         points = await conn.fetchval("SELECT points FROM users WHERE telegram_id = $1", telegram_id)
         return {"total": total, "completed": completed, "points": points}
 
-# ✅ Напоминания
 async def get_users_for_reminder(pool) -> List[Dict]:
     query = """
         SELECT u.telegram_id
