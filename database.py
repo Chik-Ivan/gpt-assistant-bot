@@ -1,5 +1,6 @@
 import os
 import asyncpg
+import uuid
 from typing import List, Dict, Optional
 from datetime import datetime
 
@@ -7,13 +8,14 @@ async def create_pool():
     return await asyncpg.create_pool(dsn=os.getenv("DATABASE_URL"))
 
 # ✅ Сохранение пользователя
-async def save_user(pool, uuid: str, username: str, first_name: str, telegram_id: int):
+async def save_user(pool, username: str, first_name: str, telegram_id: int):
     async with pool.acquire() as conn:
+        user_uuid = str(uuid.uuid4())  # генерируем UUID
         await conn.execute("""
             INSERT INTO users (id, username, first_name, access, points, goal, plan, telegram_id)
             VALUES ($1, $2, $3, FALSE, 0, NULL, NULL, $4)
-            ON CONFLICT (id) DO UPDATE SET telegram_id = $4
-        """, uuid, username, first_name, telegram_id)
+            ON CONFLICT (telegram_id) DO NOTHING
+        """, user_uuid, username, first_name, telegram_id)
 
 # ✅ Проверка доступа
 async def check_access(pool, uuid: str) -> bool:

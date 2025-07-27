@@ -93,7 +93,7 @@ scheduler.add_job(send_reminders, "cron", hour="10,18")
 @dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
     pool = await create_pool()
-    await save_user(pool, str(message.from_user.id), message.from_user.username, message.from_user.first_name, message.from_user.id)
+    await save_user(pool, message.from_user.username, message.from_user.first_name, message.from_user.id)
     access = await check_access(pool, str(message.from_user.id))
 
     if not access:
