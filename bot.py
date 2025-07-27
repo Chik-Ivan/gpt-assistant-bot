@@ -4,7 +4,6 @@ import openai
 import asyncio
 
 from aiogram.dispatcher.webhook import SendMessage
-from aiogram.dispatcher.webhook import AsyncTaskMiddleware
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.executor import start_webhook
@@ -105,8 +104,6 @@ async def start_cmd(message: types.Message):
     await message.answer("Привет! Напиши свою цель, и я помогу составить план.")
 
 # ✅ Обработка текста цели
-dp.middleware.setup(AsyncTaskMiddleware())
-
 @dp.message_handler(lambda m: not m.text.startswith('/'))
 async def handle_goal_text(message: types.Message):
     await message.answer("Генерирую план...")
