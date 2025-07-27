@@ -1,6 +1,9 @@
 import os
 import random
 import openai
+
+from aiogram.dispatcher.webhook import SendMessage
+from aiogram.dispatcher.webhook import AsyncTaskMiddleware
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.executor import start_webhook
@@ -101,17 +104,23 @@ async def start_cmd(message: types.Message):
     await message.answer("Привет! Напиши свою цель, и я помогу составить план.")
 
 # ✅ Обработка текста цели
+dp.middleware.setup(AsyncTaskMiddleware())
+
 @dp.message_handler(lambda m: not m.text.startswith('/'))
 async def handle_goal_text(message: types.Message):
+    # Мгновенный ответ Telegram
+    return SendMessage(chat_id=message.chat.id, text="Генерирую план...")
+
+@dp.async_task
+async def process_goal(message: types.Message):
     pool = await create_pool()
     text = message.text
-    await message.answer("Генерирую план...")
 
     goal_and_plan = await generate_goal_and_plan(text)
     await save_goal(pool, str(message.from_user.id), text)
     await save_plan(pool, str(message.from_user.id), goal_and_plan)
 
-    await message.answer(f"✅ Цель сохранена!\n\n{goal_and_plan}")
+    await bot.send_message(message.chat.id, f"✅ Цель сохранена!\n\n{goal_and_plan}")
 
 # ✅ /goal
 @dp.message_handler(commands=["goal"])
