@@ -256,7 +256,7 @@ async def on_startup(dp):
     pool = await create_pool()
     await set_commands(bot)
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, CronTrigger(hour=18))
+    scheduler.add_job(send_reminders, "interval", minutes=1)
     scheduler.start()
     await bot.set_webhook(WEBHOOK_URL)
     logging.info(f"Webhook установлен: {WEBHOOK_URL}")
