@@ -3,9 +3,9 @@ import sys
 import logging
 import openai
 import os
-import random
 import datetime
 import re
+import random
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, BotCommand
@@ -202,14 +202,47 @@ async def handle_chat(message: Message):
     if any(word in response.lower() for word in ["срок", "график", "дедлайн"]):
         waiting_for_days[user_id] = True
 
-# ✅ Напоминания
+# ✅ Запасные сообщения для напоминаний
+REMINDER_TEXTS = [
+    "⏰ Проверь свой план! Делаешь успехи?",
+    "🔔 Не забывай про свои цели, ты справишься!",
+    "📅 Настало время проверить прогресс.",
+    "🔥 Ты молодец! Но цели сами не выполнятся!"
+]
+
+# ✅ Генерация текста через GPT-3.5
+async def generate_reminder_message():
+    try:
+        response = await openai.ChatCompletion.acreate(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Создай короткое мотивирующее напоминание на русском, чтобы пользователь проверил выполнение плана. Максимум одно предложение."
+                }
+            ],
+            max_tokens=50,
+            temperature=0.8,
+        )
+        text = response.choices[0].message["content"].strip()
+        return text
+    except Exception as e:
+        logging.warning(f"Ошибка GPT: {e}. Использую заготовленный текст.")
+        return random.choice(REMINDER_TEXTS)
+
+# ✅ Функция отправки напоминаний
 async def send_reminders():
-    users = await get_all_users(pool)
-    for user in users:
-        try:
-            await bot.send_message(user["user_id"], "⏰ Напоминаю! Проверь свой план!")
-        except Exception as e:
-            logging.error(f"Ошибка отправки: {e}")
+    try:
+        users = await get_all_users(pool)  # список пользователей
+        for user in users:
+            try:
+                # 50% шанс взять текст от GPT, 50% — из заготовок
+                text = await generate_reminder_message() if random.random() > 0.5 else random.choice(REMINDER_TEXTS)
+                await bot.send_message(user["user_id"], text)
+            except Exception as e:
+                logging.error(f"Ошибка при отправке пользователю {user['user_id']}: {e}")
+    except Exception as e:
+        logging.error(f"Ошибка при получении пользователей: {e}")
 
 # ✅ ON STARTUP
 async def on_startup(dp):
@@ -217,10 +250,12 @@ async def on_startup(dp):
     pool = await create_pool()
     await set_commands(bot)
 
+    # ✅ Планировщик
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, CronTrigger(hour=18))
+    scheduler.add_job(send_reminders, CronTrigger(hour=18))  # Напоминания каждый день в 18:00
     scheduler.start()
 
+    # ✅ Устанавливаем webhook
     await bot.set_webhook(WEBHOOK_URL)
     logging.info(f"Webhook установлен: {WEBHOOK_URL}")
 
