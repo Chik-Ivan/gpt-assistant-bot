@@ -239,11 +239,26 @@ async def on_startup(dp):
     await bot.set_webhook(WEBHOOK_URL)
     logging.info(f"Webhook установлен: {WEBHOOK_URL}")
 
-# ✅ ON SHUTDOWN
-async def on_shutdown(dp):
-    await bot.delete_webhook()
-    await bot.session.close()
-    logging.warning("Webhook удалён.")
+# ✅ Старт для Webhook
+async def on_startup_webhook(dp):
+    global pool
+    pool = await create_pool()
+
+    # Автоматическая установка Webhook
+    try:
+        await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+        logging.info(f"✅ Webhook установлен: {WEBHOOK_URL}")
+    except Exception as e:
+        logging.error(f"❌ Ошибка установки Webhook: {e}")
+
+    await set_commands(bot)
+    logging.info("✅ Команды бота установлены")
+
+
+# ✅ Завершение (НЕ удаляем Webhook)
+async def on_shutdown_webhook(dp):
+    logging.warning("✅ Завершение работы бота (Webhook остаётся)")
+
 
 # ✅ Запуск
 if __name__ == "__main__":
@@ -251,7 +266,6 @@ if __name__ == "__main__":
         dispatcher=dp,
         webhook_path=WEBHOOK_PATH,
         on_startup=on_startup,
-        on_shutdown=on_shutdown,
         skip_updates=True,
         host=WEBAPP_HOST,
         port=WEBAPP_PORT,
