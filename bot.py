@@ -275,6 +275,12 @@ async def on_shutdown(dp):
 async def health_check(request):
     return web.Response(text="OK")
 
+# ✅ /test_reminder
+@dp.message_handler(commands=["test_reminder"])
+async def test_reminder(message: Message):
+    await send_reminders()
+    await message.reply("✅ Напоминания отправлены всем пользователям!")
+
 # ✅ RUN SERVER
 if __name__ == "__main__":
     app = web.Application()
