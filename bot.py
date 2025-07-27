@@ -129,7 +129,7 @@ async def start_handler(message: Message):
 @dp.message_handler(commands=["goal"])
 async def goal_handler(message: Message):
     goal, _ = await get_goal_and_plan(pool, message.from_user.id)
-    await message.reply(f"🎯 Цель:\n{goal}" if goal else "Цель не найдена.")
+    await message.reply(f"🎯 Цель:\n{goal}" if goal else "Цель еще не создана.")
 
 @dp.message_handler(commands=["plan"])
 async def plan_handler(message: Message):
@@ -138,15 +138,34 @@ async def plan_handler(message: Message):
 
 @dp.message_handler(commands=["progress"])
 async def progress_handler(message: Message):
-    data = await get_progress(pool, message.from_user.id)
-    progress_text = (
+    user_id = message.from_user.id
+    data = await get_progress(pool, user_id)
+
+    completed = data['completed']
+    total = data['total']
+    points = data['points']
+    next_deadline = data['next_deadline']
+
+    # Рассчитываем прогресс
+    if total > 0:
+        progress_percent = int((completed / total) * 100)
+        bars = int((completed / total) * 10)  # 10 сегментов
+        progress_bar = "█" * bars + "░" * (10 - bars)
+    else:
+        progress_percent = 0
+        progress_bar = "░" * 10
+
+    text = (
         f"📊 Прогресс:\n"
-        f"✅ Выполнено: {data['completed']} из {data['total']} этапов\n"
-        f"🔥 Баллы: {data['points']}\n"
+        f"{progress_bar} {progress_percent}%\n"
+        f"✅ Этапы: {completed}/{total}\n"
+        f"🔥 Баллы: {points}\n"
     )
-    if data["next_deadline"]:
-        progress_text += f"📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}\n"
-    await message.reply(progress_text)
+
+    if next_deadline:
+        text += f"📅 Следующий дедлайн: {next_deadline.strftime('%d %B')}\n"
+
+    await message.reply(text)
 
 @dp.message_handler(commands=["support"])
 async def support_handler(message: Message):
