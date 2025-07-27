@@ -14,9 +14,8 @@ from database import (
 # ✅ ENV
 TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Например: gpt-assistant-bot-v.onrender.com
-WEBHOOK_PATH = f"/bot{TOKEN}"
-WEBHOOK_URL = f"https://{WEBHOOK_HOST}{WEBHOOK_PATH}"
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")  # Пример: https://gpt-assistant-bot-v.onrender.com
+WEBHOOK_URL = f"{WEBHOOK_HOST}/{TOKEN}"  # ✅ Возвращаем твою рабочую схему
 
 WEBAPP_HOST = "0.0.0.0"
 WEBAPP_PORT = int(os.getenv("PORT", 8080))
@@ -34,24 +33,11 @@ REMINDER_TEXTS = [
 ]
 
 SYSTEM_PROMPT = """
-"Ты — личный ассистент-кондитера. Твоя задача — помочь пользователю определить и сформулировать свою цель по доходу, выявить сложности и ресурсы, и составить чёткий пошаговый план.\n\n"
-    "Действуй по следующей логике:\n"
-    "1. Выясни, кто перед тобой (новичок, профи, ученик и т.д.)\n"
-    "2. Узнай, чего он хочет достичь (в деньгах, уровне, статусе)\n"
-    "3. Выяви барьеры и страхи, которые мешают двигаться\n"
-    "4. Спроси, сколько времени в неделю он может уделять\n"
-    "5. Уточни желаемый срок достижения цели (в неделях или месяцах)\n\n"
-    "После этого:\n"
-    "- Чётко сформулируй его ЦЕЛЬ\n"
-    "- Разбей путь на недели\n"
-    "- В каждой неделе запланируй 3 действия: Контент, Продукт, Продажи\n\n"
-    "Важно:\n"
-    "- Задавай по 1 вопросу за раз\n"
-    "- Не спеши, сначала собери информацию\n"
-    "- После плана скажи: «Я буду присылать тебе каждую неделю план. Не сливайся»\n\n"
-    "Первое сообщение должно быть вдохновляющим: поприветствуй, объясни свою роль, предложи начать.\n"
-    "**После слов “Начнём?” дождись ответа пользователя, прежде чем задать следующий вопрос.**\n\n"
-    "Говори на русском, дружелюбно, уверенно. Не отпускай пользователя. Веди его до конца."
+Ты — умный ассистент. Твоя задача:
+1. Выяснить цель пользователя.
+2. Сформировать понятный план действий с дедлайнами.
+3. Разбить на этапы (progress).
+Ответ будь кратким и структурированным.
 """
 
 support_btn = InlineKeyboardMarkup().add(
@@ -161,9 +147,9 @@ async def test_reminder(message: types.Message):
 
 # ✅ Webhook запуск
 async def on_startup(dp):
+    print(f"✅ Устанавливаем webhook: {WEBHOOK_URL}")
     scheduler.start()
     await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
 
 async def on_shutdown(dp):
     await bot.delete_webhook()
@@ -172,7 +158,7 @@ async def on_shutdown(dp):
 if __name__ == "__main__":
     start_webhook(
         dispatcher=dp,
-        webhook_path=WEBHOOK_PATH,
+        webhook_path=f"/{TOKEN}",  # ✅ как в твоем старом коде
         on_startup=on_startup,
         on_shutdown=on_shutdown,
         skip_updates=True,
