@@ -242,7 +242,6 @@ async def send_reminders():
                 else:
                     text = random.choice(REMINDER_TEXTS)
 
-                # ✅ Используем user_id, а не id
                 await bot.send_message(user["user_id"], text)
             except BotBlocked:
                 logging.warning(f"Пользователь {user['user_id']} заблокировал бота")
@@ -250,6 +249,12 @@ async def send_reminders():
                 logging.error(f"Ошибка при отправке пользователю {user['user_id']}: {e}")
     except Exception as e:
         logging.error(f"Ошибка при получении пользователей: {e}")
+
+# ✅ Тестовая команда
+@dp.message_handler(commands=["test_reminder"])
+async def test_reminder(message: Message):
+    await send_reminders()
+    await message.reply("✅ Напоминания отправлены!")
 
 # ✅ ON STARTUP
 async def on_startup(dp):
@@ -276,12 +281,6 @@ async def on_shutdown(dp):
 async def health_check(request):
     return web.Response(text="OK")
 
-# ✅ /test_reminder
-@dp.message_handler(commands=["test_reminder"])
-async def test_reminder(message: Message):
-    await send_reminders()
-    await message.reply("✅ Напоминания отправлены всем пользователям!")
-
 # ✅ RUN SERVER
 if __name__ == "__main__":
     app = web.Application()
@@ -295,3 +294,4 @@ if __name__ == "__main__":
         host=WEBAPP_HOST,
         port=WEBAPP_PORT,
     )
+    
