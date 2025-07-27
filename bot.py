@@ -1,10 +1,10 @@
 import os
 import random
+import openai
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.executor import start_webhook
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from openai import OpenAI
 from database import (
     create_pool, save_user, check_access,
     get_goal, get_plan, save_goal, save_plan,
@@ -13,6 +13,8 @@ from database import (
 
 TOKEN = os.getenv("BOT_TOKEN")
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_KEY
+
 WEBHOOK_HOST = os.getenv("WEBHOOK_URL")
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
@@ -23,7 +25,6 @@ WEBAPP_PORT = int(os.getenv("PORT", 8080))
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 scheduler = AsyncIOScheduler()
-openai_client = OpenAI(api_key=OPENAI_KEY)
 
 REMINDER_TEXTS = [
     "Не забывайте о ваших целях! Как продвигаетесь?",
@@ -59,7 +60,7 @@ support_btn = InlineKeyboardMarkup().add(
 # ✅ GPT: Напоминание
 async def generate_reminder_message():
     try:
-        response = openai_client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Ты дружелюбный ассистент."},
@@ -67,13 +68,13 @@ async def generate_reminder_message():
             ],
             temperature=0.8
         )
-        return response.choices[0].message["content"].strip()
+        return response["choices"][0]["message"]["content"].strip()
     except:
         return random.choice(REMINDER_TEXTS)
 
 # ✅ GPT: Генерация цели и плана
 async def generate_goal_and_plan(user_text: str):
-    response = openai_client.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -81,7 +82,7 @@ async def generate_goal_and_plan(user_text: str):
         ],
         temperature=0.7
     )
-    return response.choices[0].message["content"].strip()
+    return response["choices"][0]["message"]["content"].strip()
 
 # ✅ Напоминания
 async def send_reminders():
@@ -157,7 +158,6 @@ async def test_reminder(message: types.Message):
     text = await generate_reminder_message()
     await message.answer(text)
 
-# ✅ Webhook
 async def on_startup(dp):
     await bot.set_webhook(WEBHOOK_URL)
 
