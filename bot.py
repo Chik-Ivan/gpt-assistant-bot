@@ -222,8 +222,12 @@ async def generate_reminder_message():
 
 
 async def send_reminders():
+    if pool is None:
+        logging.warning("⏳ Пропущено напоминание: нет подключения к базе данных")
+        return
+
     try:
-        users = await get_users_for_reminder(pool)
+        users = await get_users_for_reminder()
         for user in users:
             user_id = user["user_id"]
 
@@ -232,7 +236,7 @@ async def send_reminders():
             if not current_stage or current_stage["completed"]:
                 continue  # Нет активной задачи
 
-            # Получаем цель (если нет — пропускаем)
+            # Получаем цель и план (если нет — пропускаем)
             goal, plan = await get_goal_and_plan(pool, user_id)
             if not goal or not plan:
                 continue
@@ -245,7 +249,7 @@ async def send_reminders():
             if random.random() < 0.4:
                 if random.random() > 0.5:
                     prompt = (
-                        f"Ты ассистент. Пользователь сейчас на этапе {stage_number} из плана:{plan}"
+                        f"Ты ассистент. Пользователь сейчас на этапе {stage_number} из плана: {plan}. "
                         f"Создай дружелюбное напоминание о текущем этапе, используя мотивационный тон. "
                         f"Срок выполнения — {deadline.strftime('%Y-%m-%d')}. Укажи действия или вдохнови продолжить."
                     )
@@ -260,7 +264,8 @@ async def send_reminders():
                             temperature=0.8
                         )
                         text = resp["choices"][0]["message"]["content"].strip()
-                    except:
+                    except Exception as e:
+                        logging.error(f"GPT не сработал, fallback: {e}")
                         text = random.choice(REMINDER_TEXTS)
                 else:
                     text = random.choice(REMINDER_TEXTS)
