@@ -218,7 +218,6 @@ async def generate_reminder_message():
         return random.choice(REMINDER_TEXTS)
 
 
-
 async def send_reminders():
     try:
         users = await get_users_for_reminder(pool)

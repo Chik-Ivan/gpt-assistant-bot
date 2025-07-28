@@ -6,7 +6,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def create_pool():
     try:
-        pool = await asyncpg.create_pool(DATABASE_URL)
+        pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
         logging.info("✅ Подключение к базе данных успешно!")
         return pool
     except Exception as e:
