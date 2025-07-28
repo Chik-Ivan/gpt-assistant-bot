@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys
 import logging
+import asyncio
+from keep_alive import keep_alive
 import openai
 import os
 import random
@@ -282,7 +284,7 @@ async def test_reminder(message: Message):
 # ==========================
 # ✅ ON STARTUP
 async def on_startup(dp):
-    global pool
+    asyncio.create_task(keep_alive())
     global pool
     pool = await create_pool()
     await set_commands(bot)
