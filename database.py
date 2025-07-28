@@ -12,7 +12,7 @@ async def create_pool():
     except Exception as e:
         logging.error(f"Ошибка подключения к базе: {e}")
 
-# ✅ Добавление или обновление пользователя
+# ✅ Пользователь
 async def upsert_user(pool, user_id, username, first_name):
     try:
         async with pool.acquire() as conn:
@@ -27,8 +27,8 @@ async def upsert_user(pool, user_id, username, first_name):
 async def check_access(pool, user_id):
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT access FROM users WHERE id = $1", user_id)
-            return row["access"] if row else False
+            row = await conn.fetchrow("SELECT access FROM users WHERE id=$1", user_id)
+            return row and row["access"]
     except Exception as e:
         logging.error(f"Ошибка check_access: {e}")
         return False
@@ -49,7 +49,7 @@ async def get_goal_and_plan(pool, user_id):
         logging.error(f"Ошибка get_goal_and_plan: {e}")
         return None, None
 
-# ✅ Прогресс
+# ✅ Прогресс и баллы
 async def create_progress_stage(pool, user_id, stage, deadline):
     try:
         async with pool.acquire() as conn:
@@ -71,14 +71,17 @@ async def mark_progress_completed(pool, user_id, stage):
     try:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE progress SET completed=TRUE, checked=TRUE WHERE user_id=$1 AND stage=$2", user_id, stage)
+            await conn.execute("UPDATE users SET points = COALESCE(points, 0) + 1 WHERE id=$1", user_id)
     except Exception as e:
         logging.error(f"Ошибка mark_progress_completed: {e}")
 
 async def create_next_stage(pool, user_id, stage):
     try:
         async with pool.acquire() as conn:
-            deadline = "NOW() + interval '7 days'"
-            await conn.execute(f"INSERT INTO progress (user_id, stage, deadline, completed, checked) VALUES ($1, $2, {deadline}, FALSE, FALSE)", user_id, stage)
+            await conn.execute("""
+                INSERT INTO progress (user_id, stage, deadline, completed, checked)
+                VALUES ($1, $2, NOW() + interval '7 days', FALSE, FALSE)
+            """, user_id, stage)
     except Exception as e:
         logging.error(f"Ошибка create_next_stage: {e}")
 
@@ -102,7 +105,7 @@ async def get_progress(pool, user_id):
         logging.error(f"Ошибка get_progress: {e}")
         return {"points": 0, "completed": 0, "total": 0, "next_deadline": None}
 
-# ✅ Напоминания (только активные пользователи)
+# ✅ Напоминания
 async def get_users_for_reminder(pool):
     try:
         async with pool.acquire() as conn:
