@@ -283,6 +283,7 @@ async def test_reminder(message: Message):
 # ✅ ON STARTUP
 async def on_startup(dp):
     global pool
+    global pool
     pool = await create_pool()
     await set_commands(bot)
     scheduler = AsyncIOScheduler()
