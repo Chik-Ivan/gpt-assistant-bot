@@ -154,12 +154,28 @@ async def plan_handler(message: Message):
 
 @dp.message_handler(commands=["progress"])
 async def progress_handler(message: Message):
-    data = await get_progress(pool, message.from_user.id)
+    user_id = message.from_user.id
+    data = await get_progress(pool, user_id)
+
+    completed = data["completed"]
+    total = data["total"]
+    points = data["points"]
+
+    total = max(total, 1)  # чтобы не делить на 0
+    percent = int((completed / total) * 100)
+
+    bar_length = 10
+    filled_length = int(percent / 10)
+    bar = "█" * filled_length + "░" * (bar_length - filled_length)
+
     text = (
         f"📊 Прогресс:\n"
-        f"✅ Выполнено: {data['completed']} из {data['total']} этапов\n"
-        f"🔥 Баллы: {data['points']}\n"
+        f"{bar} {percent}%\n"
+        f"✅ Этапы: {completed}/{total}\n"
+        f"🔥 Баллы: {points}"
     )
+
+    await message.answer(text)
     if data["next_deadline"]:
         text += f"📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}"
     await message.reply(text)
