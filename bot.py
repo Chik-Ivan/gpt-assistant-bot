@@ -293,7 +293,6 @@ async def on_startup(dp):
 
 async def on_shutdown(dp):
     await bot.delete_webhook()
-    await bot.session.close()
     logging.warning("Webhook удалён.")
 
 if __name__ == "__main__":
