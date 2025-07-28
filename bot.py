@@ -7,6 +7,7 @@ import openai
 import os
 import random
 import datetime
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, BotCommand
 from aiogram.utils.executor import start_webhook
@@ -313,3 +314,13 @@ if __name__ == "__main__":
         host=WEBAPP_HOST,
         port=WEBAPP_PORT,
     )
+
+async def handle_root(request):
+    return web.Response(text="✅ Бот работает", status=200)
+
+app = web.Application()
+app.router.add_get("/", handle_root)
+
+# Запуск aiohttp-сервера
+if __name__ == "__main__":
+    web.run_app(app, host="0.0.0.0", port=10000)
