@@ -17,9 +17,9 @@ async def upsert_user(pool, user_id, username, first_name):
     try:
         async with pool.acquire() as conn:
             await conn.execute("""
-                INSERT INTO users (id, username, first_name, access)
+                INSERT INTO users (user_id, username, first_name, access)
                 VALUES ($1, $2, $3, FALSE)
-                ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name
+                ON CONFLICT (user_id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name
             """, user_id, username, first_name)
     except Exception as e:
         logging.error(f"Ошибка upsert_user: {e}")
@@ -27,7 +27,7 @@ async def upsert_user(pool, user_id, username, first_name):
 async def check_access(pool, user_id):
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT access FROM users WHERE id=$1", user_id)
+            row = await conn.fetchrow("SELECT access FROM users WHERE user_id=$1", user_id)
             return row and row["access"]
     except Exception as e:
         logging.error(f"Ошибка check_access: {e}")
@@ -36,14 +36,14 @@ async def check_access(pool, user_id):
 async def update_goal_and_plan(pool, user_id, goal, plan):
     try:
         async with pool.acquire() as conn:
-            await conn.execute("UPDATE users SET goal=$1, plan=$2 WHERE id=$3", goal, plan, user_id)
+            await conn.execute("UPDATE users SET goal=$1, plan=$2 WHERE user_id=$3", goal, plan, user_id)
     except Exception as e:
         logging.error(f"Ошибка update_goal_and_plan: {e}")
 
 async def get_goal_and_plan(pool, user_id):
     try:
         async with pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT goal, plan FROM users WHERE id=$1", user_id)
+            row = await conn.fetchrow("SELECT goal, plan FROM users WHERE user_id=$1", user_id)
             return row["goal"], row["plan"] if row else (None, None)
     except Exception as e:
         logging.error(f"Ошибка get_goal_and_plan: {e}")
@@ -71,7 +71,7 @@ async def mark_progress_completed(pool, user_id, stage):
     try:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE progress SET completed=TRUE, checked=TRUE WHERE user_id=$1 AND stage=$2", user_id, stage)
-            await conn.execute("UPDATE users SET points = COALESCE(points, 0) + 1 WHERE id=$1", user_id)
+            await conn.execute("UPDATE users SET points = COALESCE(points, 0) + 1 WHERE user_id=$1", user_id)
     except Exception as e:
         logging.error(f"Ошибка mark_progress_completed: {e}")
 
@@ -88,7 +88,7 @@ async def create_next_stage(pool, user_id, stage):
 async def get_progress(pool, user_id):
     try:
         async with pool.acquire() as conn:
-            user = await conn.fetchrow("SELECT points FROM users WHERE id=$1", user_id)
+            user = await conn.fetchrow("SELECT points FROM users WHERE user_id=$1", user_id)
             progress = await conn.fetchrow("""
                 SELECT COUNT(*) FILTER (WHERE completed=TRUE) as completed,
                        COUNT(*) as total,
