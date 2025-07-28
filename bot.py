@@ -217,18 +217,64 @@ async def generate_reminder_message():
     except:
         return random.choice(REMINDER_TEXTS)
 
+
+
 async def send_reminders():
     try:
         users = await get_users_for_reminder(pool)
         for user in users:
-            # ✅ Рандомизация: шанс 40%, чтобы не спамить каждый день
+            user_id = user["user_id"]
+
+            # Получаем текущий активный этап пользователя
+            current_stage = await check_last_progress(pool, user_id)
+            if not current_stage or current_stage["completed"]:
+                continue  # Нет активной задачи
+
+            # Получаем цель (если нет — пропускаем)
+            goal, plan = await get_goal_and_plan(pool, user_id)
+            if not goal or not plan:
+                continue
+
+            stage_number = current_stage["stage"]
+            deadline = current_stage["deadline"]
+            delta_days = (deadline - datetime.datetime.now()).days
+
+            # 40% шанс отправки, 50% из них — GPT
             if random.random() < 0.4:
-                text = await generate_reminder_message() if random.random() > 0.5 else random.choice(REMINDER_TEXTS)
-                await bot.send_message(user["user_id"], text)
+                if random.random() > 0.5:
+                    prompt = (
+                        f"Ты ассистент. Пользователь сейчас на этапе {stage_number} из плана: {plan}"
+                        f"Создай дружелюбное напоминание о текущем этапе, используя мотивационный тон. "
+                        f"Срок выполнения — {deadline.strftime('%Y-%m-%d')}. Укажи действия или вдохнови продолжить."
+                    )
+                    try:
+                        resp = openai.ChatCompletion.create(
+                            model="gpt-3.5-turbo",
+                            messages=[
+                                {"role": "system", "content": "Ты дружелюбный мотиватор, помогаешь пользователю дойти до цели."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            max_tokens=100,
+                            temperature=0.8
+                        )
+                        text = resp["choices"][0]["message"]["content"].strip()
+                    except:
+                        text = random.choice(REMINDER_TEXTS)
+                else:
+                    text = random.choice(REMINDER_TEXTS)
+
+                await bot.send_message(user_id, text)
+
     except Exception as e:
         logging.error(f"Ошибка при отправке напоминаний: {e}")
 
 @dp.message_handler(commands=["test_reminder"])
+async def test_reminder(message: Message):
+    await message.reply("🧪 Запускаю умные напоминания...")
+    await send_reminders()
+    await message.reply("✅ Тестовое напоминание: запускаю рассылку...")
+    await send_reminders()
+
 async def test_reminder(message: Message):
     await send_reminders()
     await message.reply("✅ Напоминания отправлены!")
