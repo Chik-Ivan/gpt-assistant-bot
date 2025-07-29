@@ -178,11 +178,10 @@ async def progress_handler(message: Message):
         f"🔥 Баллы: {points}"
     )
 
-    await message.answer(text)
     if data["next_deadline"]:
-        text += f"📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}"
-    await message.reply(text)
+        text += f"\n📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}"
 
+    await message.reply(text)
 @dp.message_handler(commands=["support"])
 async def support_handler(message: Message):
     await message.reply("Нужна помощь? Напиши в поддержку 👇", reply_markup=support_button)
