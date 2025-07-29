@@ -306,19 +306,30 @@ async def test_reminder(message: Message):
 # ==========================
 # ✅ ON STARTUP
 async def on_startup(dp):
-    asyncio.create_task(keep_alive())
     global pool
     pool = await create_pool()
     await set_commands(bot)
+
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_reminders, CronTrigger(hour="10,18"))  # Утро и вечер
+    scheduler.add_job(send_reminders, CronTrigger(hour="10,18"))
     scheduler.start()
+
     await bot.set_webhook(WEBHOOK_URL)
     logging.info(f"Webhook установлен: {WEBHOOK_URL}")
 
-async def on_shutdown(dp):
-    await bot.delete_webhook()
-    logging.warning("Webhook удалён.")
+    # 👇 Автоматически "пингуем" Render, чтобы webhook не сбрасывался
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook",
+                data={"url": f"{WEBHOOK_URL}/webhook/{BOT_TOKEN}"}
+            ) as resp:
+                if resp.status == 200:
+                    logging.info("Webhook успешно установлен вручную через код")
+                else:
+                    logging.error(f"Не удалось установить webhook: {resp.status}")
+    except Exception as e:
+        logging.error(f"Ошибка при установке webhook через код: {e}")
 
 if __name__ == "__main__":
     start_webhook(
