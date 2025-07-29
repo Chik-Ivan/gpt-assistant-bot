@@ -1,9 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# 💬 Кнопка для связи с техподдержкой
+# Кнопка поддержки (inline)
 support_button = InlineKeyboardMarkup().add(
-    InlineKeyboardButton(
-        text="💬 Написать в поддержку",
-        url="https://t.me/Abramova_school_support"
-    )
+    InlineKeyboardButton("💬 Написать в поддержку", url="https://t.me/Abramova_school_support")  # type: ignore
 )
