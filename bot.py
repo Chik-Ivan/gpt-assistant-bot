@@ -8,7 +8,6 @@ import openai
 import os
 import random
 import datetime 
-
 from config import WEBHOOK_URL
 from aiohttp import web
 from aiogram import Bot, Dispatcher
@@ -136,33 +135,60 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
 @dp.message_handler(commands=["start"])
 async def start_handler(message: Message):
     user_id = message.from_user.id
-    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
+    username = message.from_user.username or ""
+    full_name = message.from_user.full_name or ""
+    await upsert_user(user_id, username, full_name, pool)
 
-    if not await check_access(pool, user_id):
-        await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
+    access = await check_access(user_id, pool)
+    if not access:
+        await message.answer("🔒 У тебя пока нет доступа. Нажми кнопку ниже, чтобы написать в поддержку.", reply_markup=support_button)
         return
 
+    await message.answer("👋 Привет! Я помогу тебе определить цель, составить план и двигаться к ней шаг за шагом. Начнём?")
+    await message.answer("Напиши кратко, кто ты и чего хочешь достичь (например: 'Я кондитер, хочу выйти на 100.000₽ в месяц')")
     dialogues[user_id] = [{"role": "system", "content": system_prompt}]
-    await message.reply(await chat_with_gpt(user_id, "Начни диалог"))
-
 @dp.message_handler(commands=["goal"])
 async def goal_handler(message: Message):
-    goal, _ = await get_goal_and_plan(pool, message.from_user.id)
-    await message.reply(f"🎯 Цель:\n{goal}" if goal else "Цель не сохранена.")
+    user_id = message.from_user.id
+    access = await check_access(user_id, pool)
+    if not access:
+        await message.answer("🚫 У тебя нет доступа. Нажми кнопку ниже, чтобы написать в поддержку.", reply_markup=support_button)
+        return
+
+    goal, _ = await get_goal_and_plan(user_id, pool)
+    if goal:
+        await message.answer(f"🎯 Твоя цель:\n<code>{goal}</code>")
+    else:
+        await message.answer("❗ Цель пока не задана. Используй /start, чтобы начать.")
+
 
 @dp.message_handler(commands=["plan"])
 async def plan_handler(message: Message):
-    _, plan = await get_goal_and_plan(pool, message.from_user.id)
-    await message.reply(f"📅 План:\n{plan}" if plan else "План не сохранён.")
+    user_id = message.from_user.id
+    access = await check_access(user_id, pool)
+    if not access:
+        await message.answer("🚫 У тебя нет доступа. Нажми кнопку ниже, чтобы написать в поддержку.", reply_markup=support_button)
+        return
 
+    _, plan = await get_goal_and_plan(user_id, pool)
+    if plan:
+        await message.answer(f"📋 Твой план:\n<code>{plan}</code>")
+    else:
+        await message.answer("❗ План пока не задан. Используй /start, чтобы начать.")
+
+
+@dp.message_handler(commands=["support"])
+async def support_handler(message: Message):
+    await message.answer("👩‍💻 Если возникли вопросы — нажми на кнопку ниже, чтобы связаться с поддержкой.", reply_markup=support_button)
 @dp.message_handler(commands=["progress"])
 async def progress_handler(message: Message):
     user_id = message.from_user.id
     data = await get_progress(pool, user_id)
 
-    completed = data["completed"]
-    total = data["total"]
-    points = data["points"]
+    progress = await get_progress(pool, user_id)
+    completed = len([p for p in progress if p['completed']])
+    total = len(progress)
+    points = total  # или замени на отдельную логику начисления
 
     total = max(total, 1)  # чтобы не делить на 0
     percent = int((completed / total) * 100)
@@ -178,15 +204,10 @@ async def progress_handler(message: Message):
         f"🔥 Баллы: {points}"
     )
 
-    if data["next_deadline"]:
-        text += f"\n📅 Следующий дедлайн: {data['next_deadline'].strftime('%d %B')}"
-
     await message.reply(text)
 @dp.message_handler(commands=["support"])
 async def support_handler(message: Message):
-    await message.reply("Нужна помощь? Напиши в поддержку 👇", reply_markup=support_button)
-
-# ✅ Общий обработчик
+    await message.answer("👩‍💻 Если возникли вопросы — нажми на кнопку ниже, чтобы связаться с поддержкой.", reply_markup=support_button)# ✅ Общий обработчик
 @dp.message_handler()
 async def handle_chat(message: Message):
     user_id = message.from_user.id
