@@ -2,11 +2,14 @@
 import sys
 import logging
 import asyncio
+import aiohttp
 from keep_alive import keep_alive
 import openai
 import os
 import random
 import datetime
+
+from config import WEBHOOK_URL
 from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, BotCommand
@@ -336,7 +339,6 @@ if __name__ == "__main__":
         dispatcher=dp,
         webhook_path=WEBHOOK_PATH,
         on_startup=on_startup,
-        on_shutdown=on_shutdown,
         skip_updates=True,
         host=WEBAPP_HOST,
         port=WEBAPP_PORT,
