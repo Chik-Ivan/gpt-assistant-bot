@@ -147,7 +147,7 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
 @dp.message_handler(commands=["start"])
 async def start_handler(message: Message):
     user_id = message.from_user.id
-    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
+    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "", False, 0, datetime.utcnow())
 
     if not await check_access(pool, user_id):
         await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
@@ -364,6 +364,7 @@ app.router.add_get("/", handle_root)
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=10000)
 
+
 @dp.callback_query_handler(lambda c: c.data in ["fsm_restart", "fsm_continue"], state="*")
 async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
     if callback_query.data == "fsm_restart":
@@ -372,4 +373,3 @@ async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
         await GoalStates.waiting_for_goal.set()
     elif callback_query.data == "fsm_continue":
         await callback_query.message.edit_text("▶️ Продолжаем с того места, где остановились.")
-
