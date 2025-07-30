@@ -1,6 +1,10 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
-# Кнопка поддержки (inline)
-support_button = InlineKeyboardMarkup().add(
-    InlineKeyboardButton("💬 Написать в поддержку", url="https://t.me/Abramova_school_support")  # type: ignore
+start_choice_keyboard = InlineKeyboardMarkup(row_width=2)
+start_choice_keyboard.add(
+    InlineKeyboardButton("🔄 Начать заново", callback_data="start_over"),
+    InlineKeyboardButton("➡️ Продолжить", callback_data="continue")
 )
+
+support_button = ReplyKeyboardMarkup(resize_keyboard=True)
+support_button.add(KeyboardButton("👨‍💻 Техподдержка"))
