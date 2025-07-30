@@ -13,21 +13,15 @@ async def create_pool():
         logging.error(f"Ошибка подключения к базе: {e}")
 
 # ✅ Пользователь
-
-async def upsert_user(pool, user_id, username, first_name, access, points, start_ts):
+async def upsert_user(pool, user_id, username, first_name):
     try:
         async with pool.acquire() as conn:
             await conn.execute("""
-                INSERT INTO users (user_id, username, first_name, access, points, start_ts)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                ON CONFLICT (user_id) DO UPDATE
-                SET username = EXCLUDED.username,
-                    first_name = EXCLUDED.first_name,
-                    start_ts = EXCLUDED.start_ts
-            """, user_id, username, first_name, access, points, start_ts)
+                INSERT INTO users (user_id, username, first_name, access)
+                VALUES ($1, $2, $3, FALSE)
+                ON CONFLICT (user_id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name
+            """, user_id, username, first_name)
     except Exception as e:
-        logging.error(f"Ошибка upsert_user: {e}")
-
         logging.error(f"Ошибка upsert_user: {e}")
 
 async def check_access(pool, user_id):
@@ -122,4 +116,4 @@ async def get_users_for_reminder(pool):
             return rows
     except Exception as e:
         logging.error(f"Ошибка get_users_for_reminder: {e}")
-        return []  
+        return [] 
