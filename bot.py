@@ -16,8 +16,8 @@ from keep_alive import keep_alive
 import openai
 import os
 import random
-import datetime 
 
+from datetime import datetime
 from aiogram.dispatcher import FSMContext
 from states import GoalStates
 from config import WEBHOOK_URL
