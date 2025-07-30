@@ -1,5 +1,6 @@
 from supabase import create_client
 import os
+from datetime import datetime
 
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_KEY")
@@ -62,16 +63,39 @@ async def get_goal_and_plan(pool, user_id):
         logging.error(f"Ошибка get_goal_and_plan: {e}")
         return None, None
 
-# ✅ Прогресс и баллы
-async def create_progress_stage(pool, user_id, stage, deadline):
+# ========== PROGRESS ========== 
+async def create_progress_stage(user_id, stage, deadline=None):
     try:
-        async with pool.acquire() as conn:
-            await conn.execute("""
-                INSERT INTO progress (user_id, stage, deadline, completed, checked)
-                VALUES ($1, $2, $3, FALSE, FALSE)
-            """, user_id, stage, deadline)
+        data = {
+            "user_id": user_id,
+            "stage": stage,
+            "completed": False,
+            "checked": False,
+            "deadline": deadline or datetime.utcnow().isoformat()
+        }
+        await supabase.table("progress").insert(data).execute()
+        print("✅ Прогресс успешно записан")
     except Exception as e:
-        logging.error(f"Ошибка create_progress_stage: {e}")
+        print(f"❌ Ошибка записи прогресса: {e}")
+
+async def get_progress(user_id):
+    try:
+        response = await supabase.table("progress").select("*").eq("user_id", user_id).execute()
+        data = response.data
+        if data:
+            print("ℹ️ Найден прогресс:", data)
+            return data
+        return []
+    except Exception as e:
+        print(f"❌ Ошибка получения прогресса: {e}")
+        return []
+
+async def reset_user_progress(user_id):
+    try:
+        await supabase.table("progress").delete().eq("user_id", user_id).execute()
+        print("🔄 Прогресс сброшен")
+    except Exception as e:
+        print(f"❌ Ошибка сброса прогресса: {e}")
 
 async def check_last_progress(pool, user_id):
     try:
@@ -134,4 +158,3 @@ async def get_users_for_reminder(pool):
 async def reset_user_progress(user_id: int):
     # Удаляем прогресс пользователя
     await supabase.table("progress").delete().eq("user_id", user_id).execute()
-
