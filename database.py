@@ -13,15 +13,21 @@ async def create_pool():
         logging.error(f"Ошибка подключения к базе: {e}")
 
 # ✅ Пользователь
-async def upsert_user(pool, user_id, username, first_name):
+
+async def upsert_user(pool, user_id, username, first_name, access, points, start_ts):
     try:
         async with pool.acquire() as conn:
             await conn.execute("""
-                INSERT INTO users (user_id, username, first_name, access, start_ts)
-                VALUES ($1, $2, $3, FALSE, $7)
-                ON CONFLICT (user_id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name
-            """, user_id, username, first_name)
+                INSERT INTO users (user_id, username, first_name, access, points, start_ts)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (user_id) DO UPDATE
+                SET username = EXCLUDED.username,
+                    first_name = EXCLUDED.first_name,
+                    start_ts = EXCLUDED.start_ts
+            """, user_id, username, first_name, access, points, start_ts)
     except Exception as e:
+        logging.error(f"Ошибка upsert_user: {e}")
+
         logging.error(f"Ошибка upsert_user: {e}")
 
 async def check_access(pool, user_id):
@@ -55,7 +61,7 @@ async def create_progress_stage(pool, user_id, stage, deadline):
         async with pool.acquire() as conn:
             await conn.execute("""
                 INSERT INTO progress (user_id, stage, deadline, completed, checked)
-                VALUES ($1, $2, $3, FALSE, FALSE, $7)
+                VALUES ($1, $2, $3, FALSE, FALSE)
             """, user_id, stage, deadline)
     except Exception as e:
         logging.error(f"Ошибка create_progress_stage: {e}")
@@ -80,7 +86,7 @@ async def create_next_stage(pool, user_id, stage):
         async with pool.acquire() as conn:
             await conn.execute("""
                 INSERT INTO progress (user_id, stage, deadline, completed, checked)
-                VALUES ($1, $2, NOW(, $7) + interval '7 days', FALSE, FALSE)
+                VALUES ($1, $2, NOW() + interval '7 days', FALSE, FALSE)
             """, user_id, stage)
     except Exception as e:
         logging.error(f"Ошибка create_next_stage: {e}")
