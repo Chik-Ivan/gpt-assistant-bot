@@ -1,3 +1,4 @@
+from datetime import datetime
 # -*- coding: utf-8 -*-
 import sys
 import logging
@@ -12,7 +13,7 @@ import datetime
 from config import WEBHOOK_URL
 from aiohttp import web
 from aiogram import Bot, Dispatcher
-from aiogram.types import  Message, BotCommand
+from aiogram.types import ChatAction,  Message, BotCommand
 from aiogram.utils.executor import start_webhook
 from aiogram.utils.exceptions import BotBlocked, TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -139,7 +140,7 @@ async def start_handler(message: Message):
     await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
 
     if not await check_access(pool, user_id):
-        await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
+        await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)        
         return
 
     dialogues[user_id] = [{"role": "system", "content": system_prompt}]
