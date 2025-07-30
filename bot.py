@@ -363,3 +363,4 @@ async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
         await GoalStates.waiting_for_goal.set()
     elif callback_query.data == "fsm_continue":
         await callback_query.message.edit_text("▶️ Продолжаем с того места, где остановились.")
+
