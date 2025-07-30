@@ -1,3 +1,4 @@
+from datetime import datetime
 # -*- coding: utf-8 -*-
 import sys
 import logging
@@ -136,7 +137,7 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
 @dp.message_handler(commands=["start"])
 async def start_handler(message: Message):
     user_id = message.from_user.id
-    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
+    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "", False, 0, datetime.utcnow())
 
     if not await check_access(pool, user_id):
         await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
