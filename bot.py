@@ -7,12 +7,16 @@ from keep_alive import keep_alive
 import openai
 import os
 import random
-import datetime 
+from datetime import datetime
 
+from aiogram.dispatcher import FSMContext
+from aiogram.types import CallbackQuery
+from aiogram.dispatcher import FSMContext
+from states import GoalStates
 from config import WEBHOOK_URL
 from aiohttp import web
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message, BotCommand
+from aiogram.types import  Message, BotCommand
 from aiogram.utils.executor import start_webhook
 from aiogram.utils.exceptions import BotBlocked, TelegramAPIError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -31,7 +35,7 @@ from database import (
     get_progress,
     get_users_for_reminder
 )
-from keyboards import support_button
+from keyboards import start_choice_keyboard, support_button
 
 # Webhook config
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
@@ -134,9 +138,14 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
 # ==========================
 # ✅ Хэндлеры команд
 @dp.message_handler(commands=["start"])
-async def start_handler(message: Message):
+async def start_handler(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "")
+
+    state_name = await state.get_state()
+    if state_name:
+        await message.answer("Ты уже начал проходить опрос. Продолжим с того места или начнём сначала?", reply_markup=start_choice_keyboard)
+        return
+    await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "", False, 0, datetime.utcnow())
 
     if not await check_access(pool, user_id):
         await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
@@ -352,3 +361,11 @@ app.router.add_get("/", handle_root)
 # Запуск aiohttp-сервера
 if __name__ == "__main__":
     web.run_app(app, host="0.0.0.0", port=10000)
+@dp.callback_query_handler(lambda c: c.data in ["fsm_restart", "fsm_continue"], state="*")
+async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
+    if callback_query.data == "fsm_restart":
+        await state.finish()
+        await callback_query.message.edit_text("🔁 Опрос начат заново. Какая у тебя цель?")
+        await GoalStates.waiting_for_goal.set()
+    elif callback_query.data == "fsm_continue":
+        await callback_query.message.edit_text("▶️ Продолжаем с того места, где остановились.")
