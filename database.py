@@ -122,4 +122,4 @@ async def get_users_for_reminder(pool):
             return rows
     except Exception as e:
         logging.error(f"Ошибка get_users_for_reminder: {e}")
-        return [] 
+        return []  
