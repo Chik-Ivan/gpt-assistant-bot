@@ -315,8 +315,11 @@ async def on_startup(dp):
     scheduler.add_job(send_reminders, CronTrigger(hour="10,18"))
     scheduler.start()
 
-    await bot.set_webhook(WEBHOOK_URL)
-    logging.info(f"Webhook установлен: {WEBHOOK_URL}")
+    try:
+        await bot.set_webhook(WEBHOOK_URL)
+        logging.info(f"Webhook установлен: {WEBHOOK_URL}")
+    except Exception as e:
+        logging.warning(f"⚠️ Не удалось установить webhook: {e}")
 
     # 👇 Автоматически "пингуем" Render, чтобы webhook не сбрасывался
     try:
