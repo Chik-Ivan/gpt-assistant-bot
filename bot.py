@@ -369,3 +369,62 @@ async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
         await GoalStates.waiting_for_goal.set()
     elif callback_query.data == "fsm_continue":
         await callback_query.message.edit_text("▶️ Продолжаем с того места, где остановились.")
+
+
+
+from aiogram.dispatcher import FSMContext
+from states import GoalStates
+from aiogram import types
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from database import create_progress_stage
+
+@dp.message_handler(commands="start", state="*")
+async def cmd_start(message: types.Message, state: FSMContext):
+    await state.finish()
+    user_id = message.from_user.id
+    await state.update_data(user_id=user_id)
+
+    # Проверим, начат ли уже опрос
+    data = await state.get_data()
+    if "goal" in data:
+        await message.answer("Ты уже начал анкету. Продолжить или начать заново?", reply_markup=start_choice_keyboard)
+    else:
+        await message.answer("Привет! Я твой личный ассистент-кондитер. Моя задача — помочь тебе определить и достичь своих целей в кондитерском деле. Начнём?")
+        await GoalStates.waiting_for_goal.set()
+
+@dp.callback_query_handler(lambda c: c.data == "fsm_restart", state="*")
+async def fsm_restart_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await callback_query.message.answer("Ок, начнем заново. Напиши свою цель.")
+    await GoalStates.waiting_for_goal.set()
+
+@dp.callback_query_handler(lambda c: c.data == "fsm_continue", state="*")
+async def fsm_continue_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    await callback_query.message.answer("Продолжаем. Напиши свою цель.")
+    await GoalStates.waiting_for_goal.set()
+
+@dp.message_handler(state=GoalStates.waiting_for_goal)
+async def process_goal(message: types.Message, state: FSMContext):
+    await state.update_data(goal=message.text)
+    await message.answer("Почему это важно для тебя?")
+    await GoalStates.waiting_for_reason.set()
+
+@dp.message_handler(state=GoalStates.waiting_for_reason)
+async def process_reason(message: types.Message, state: FSMContext):
+    await state.update_data(reason=message.text)
+    await message.answer("За сколько дней хочешь достичь цели?")
+    await GoalStates.waiting_for_deadline.set()
+
+@dp.message_handler(state=GoalStates.waiting_for_deadline)
+async def process_deadline(message: types.Message, state: FSMContext):
+    await state.update_data(deadline=message.text)
+    data = await state.get_data()
+
+    # Сохраняем прогресс
+    try:
+        await create_progress_stage(user_id=data['user_id'], stage="Этап 1")
+    except Exception as e:
+        await message.answer(f"Ошибка при сохранении прогресса: {e}")
+
+    await message.answer("Отлично! Мы записали твою цель и начинаем работу!")
+    await state.finish()

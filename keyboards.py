@@ -7,4 +7,4 @@ start_choice_keyboard.add(
 )
 
 support_button = ReplyKeyboardMarkup(resize_keyboard=True)
-support_button.add(KeyboardButton("👨‍💻 Техподдержка"))
+support_button.add(KeyboardButton("👨‍💻 Техподдержка")) 
