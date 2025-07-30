@@ -9,6 +9,7 @@ import os
 import random
 from datetime import datetime
 
+from aiogram.dispatcher import FSMContext
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
 from states import GoalStates
@@ -137,8 +138,13 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
 # ==========================
 # ✅ Хэндлеры команд
 @dp.message_handler(commands=["start"])
-async def start_handler(message: Message):
+async def start_handler(message: Message, state: FSMContext):
     user_id = message.from_user.id
+
+    state_name = await state.get_state()
+    if state_name:
+        await message.answer("Ты уже начал проходить опрос. Продолжим с того места или начнём сначала?", reply_markup=start_choice_keyboard)
+        return
     await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "", False, 0, datetime.utcnow())
 
     if not await check_access(pool, user_id):
