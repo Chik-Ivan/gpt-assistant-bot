@@ -134,3 +134,4 @@ async def get_users_for_reminder(pool):
 async def reset_user_progress(user_id: int):
     # Удаляем прогресс пользователя
     await supabase.table("progress").delete().eq("user_id", user_id).execute()
+

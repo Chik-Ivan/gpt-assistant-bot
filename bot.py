@@ -371,4 +371,3 @@ async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
         await callback_query.message.edit_text("▶️ Продолжаем с того места, где остановились.")
 
 
-
