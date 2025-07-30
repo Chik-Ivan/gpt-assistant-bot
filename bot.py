@@ -422,9 +422,11 @@ async def process_deadline(message: types.Message, state: FSMContext):
 
     # Сохраняем прогресс
     try:
-        await create_progress_stage(user_id=data['user_id'], stage="Этап 1")
+        await create_progress_stage(pool, user_id=data['user_id'], stage="Этап 1")
     except Exception as e:
         await message.answer(f"Ошибка при сохранении прогресса: {e}")
 
     await message.answer("Отлично! Мы записали твою цель и начинаем работу!")
     await state.finish()
+
+
