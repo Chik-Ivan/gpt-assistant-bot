@@ -36,3 +36,4 @@ confirm_clear_memory_keyboard.add(
     KeyboardButton("✅ Подтвердить"),
     KeyboardButton("❌ Отмена")
 )
+

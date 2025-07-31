@@ -466,3 +466,21 @@ async def clear_confirmed(callback_query: CallbackQuery, state: FSMContext):
 @dp.callback_query_handler(lambda c: c.data == "clear_cancel")
 async def clear_cancel(callback_query: CallbackQuery):
     await bot.send_message(callback_query.from_user.id, "❌ Отмена действия.")
+
+
+
+
+@dp.message_handler(state=None)
+async def start_first_response(message: Message, state: FSMContext):
+    await upsert_user(message.from_user.id)
+    access = await check_access(message.from_user.id)
+    if not access:
+        await message.answer("❌ У вас нет доступа. Свяжитесь с поддержкой.", reply_markup=support_button)
+        return
+
+    # Создание первой стадии прогресса
+    await create_progress_stage(message.from_user.id, stage="Уровень")
+
+    # Установка состояния FSM
+    await message.answer("📌 Вопрос 1: Какой у тебя сейчас уровень в выбранной теме? Например: новичок, продолжающий или эксперт.", reply_markup=clear_memory_keyboard)
+    await GoalStates.level.set()
