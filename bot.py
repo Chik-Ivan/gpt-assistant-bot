@@ -428,5 +428,3 @@ async def process_deadline(message: types.Message, state: FSMContext):
 
     await message.answer("Отлично! Мы записали твою цель и начинаем работу!")
     await state.finish()
-
-
