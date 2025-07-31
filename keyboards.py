@@ -21,3 +21,18 @@ confirm_clear_memory_keyboard.add(
     InlineKeyboardButton("❌ Отмена", callback_data="clear_cancel")
 )
 
+
+
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+start_choice_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+start_choice_keyboard.add(KeyboardButton("🔁 Начать сначала"), KeyboardButton("▶️ Продолжить"))
+
+clear_memory_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+clear_memory_keyboard.add(KeyboardButton("🧹 Стереть память"))
+
+confirm_clear_memory_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+confirm_clear_memory_keyboard.add(
+    KeyboardButton("✅ Подтвердить"),
+    KeyboardButton("❌ Отмена")
+)

@@ -466,4 +466,3 @@ async def clear_confirmed(callback_query: CallbackQuery, state: FSMContext):
 @dp.callback_query_handler(lambda c: c.data == "clear_cancel")
 async def clear_cancel(callback_query: CallbackQuery):
     await bot.send_message(callback_query.from_user.id, "❌ Отмена действия.")
-
