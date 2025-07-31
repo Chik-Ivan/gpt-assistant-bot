@@ -1,3 +1,5 @@
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from keyboards import start_choice_keyboard, support_button, clear_memory_keyboard, confirm_clear_memory_keyboard
 # -*- coding: utf-8 -*-
 import sys
 import logging
@@ -9,6 +11,7 @@ import os
 import random
 from datetime import datetime
 
+from database import delete_progress
 from aiogram.dispatcher import FSMContext
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
@@ -428,3 +431,38 @@ async def process_deadline(message: types.Message, state: FSMContext):
 
     await message.answer("Отлично! Мы записали твою цель и начинаем работу!")
     await state.finish()
+
+
+
+@dp.callback_query_handler(lambda c: c.data == "start_over")
+async def restart_fsm(callback_query: CallbackQuery, state: FSMContext):
+    await state.finish()
+    user_id = callback_query.from_user.id
+    await delete_progress(user_id)
+    await bot.send_message(user_id, "🔄 Начинаем сначала. Введи свою цель.")
+    await GoalStates.waiting_for_goal.set()
+
+@dp.callback_query_handler(lambda c: c.data == "continue")
+async def continue_fsm(callback_query: CallbackQuery, state: FSMContext):
+    current_state = await state.get_state()
+    user_id = callback_query.from_user.id
+    if current_state:
+        await bot.send_message(user_id, "➡️ Продолжаем с текущего вопроса.")
+    else:
+        await bot.send_message(user_id, "🚫 Нет активного состояния.")
+
+
+@dp.callback_query_handler(lambda c: c.data == "confirm_clear")
+async def confirm_clear(callback_query: CallbackQuery):
+    await bot.send_message(callback_query.from_user.id, "⚠️ Вы точно хотите стереть память? Это действие необратимо.",
+                           reply_markup=confirm_clear_memory_keyboard)
+
+@dp.callback_query_handler(lambda c: c.data == "clear_confirmed")
+async def clear_confirmed(callback_query: CallbackQuery, state: FSMContext):
+    await state.finish()
+    await delete_progress(callback_query.from_user.id)
+    await bot.send_message(callback_query.from_user.id, "🧹 Память успешно стерта.")
+
+@dp.callback_query_handler(lambda c: c.data == "clear_cancel")
+async def clear_cancel(callback_query: CallbackQuery):
+    await bot.send_message(callback_query.from_user.id, "❌ Отмена действия.")

@@ -164,3 +164,10 @@ async def get_users_for_reminder(pool):
 async def reset_user_progress(user_id: int):
     # Удаляем прогресс пользователя
     await supabase.table("progress").delete().eq("user_id", user_id).execute()
+
+async def delete_progress(user_id):
+    try:
+        await supabase.table("progress").delete().eq("user_id", user_id).execute()
+        print(f"🗑️ Прогресс пользователя {user_id} удалён.")
+    except Exception as e:
+        print(f"❌ Ошибка при удалении прогресса: {e}")
