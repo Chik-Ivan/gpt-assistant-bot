@@ -64,6 +64,8 @@ async def get_goal_and_plan(pool, user_id):
         return None, None
 
 # ========== PROGRESS ========== 
+from datetime import datetime  # убедись, что импорт есть
+
 async def create_progress_stage(user_id, stage, deadline=None):
     try:
         data = {
@@ -73,7 +75,11 @@ async def create_progress_stage(user_id, stage, deadline=None):
             "checked": False,
             "deadline": deadline or datetime.utcnow().isoformat()
         }
+
+        print(f"👣 Попытка записи в progress: {data}")  # 👈 лог перед вставкой
+
         await supabase.table("progress").insert(data).execute()
+
         print("✅ Прогресс успешно записан")
     except Exception as e:
         print(f"❌ Ошибка записи прогресса: {e}")

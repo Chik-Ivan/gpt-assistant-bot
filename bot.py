@@ -129,7 +129,7 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
             plan = reply.split("План действий:")[-1].strip()
             await update_goal_and_plan(pool, user_id, goal, plan)
             deadline = (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-            await create_progress_stage(pool, user_id, 1, deadline)
+            await create_progress_stage(user_id, 1, deadline)
 
         return reply
     except Exception as e:
@@ -206,7 +206,7 @@ async def handle_chat(message: Message):
     if waiting_for_days.get(user_id):
         days = extract_days(text)
         deadline = datetime.datetime.now() + datetime.timedelta(days=days)
-        await create_progress_stage(pool, user_id, 1, deadline.strftime("%Y-%m-%d %H:%M:%S"))
+        await create_progress_stage(user_id, 1, deadline.strftime("%Y-%m-%d %H:%M:%S"))
         await message.reply(f"✅ План установлен на {days} дней.")
         waiting_for_days[user_id] = False
         return
@@ -422,7 +422,7 @@ async def process_deadline(message: types.Message, state: FSMContext):
 
     # Сохраняем прогресс
     try:
-        await create_progress_stage(pool, user_id=data['user_id'], stage="Этап 1")
+        await create_progress_stage(user_id=data['user_id'], stage="Этап 1")
     except Exception as e:
         await message.answer(f"Ошибка при сохранении прогресса: {e}")
 
