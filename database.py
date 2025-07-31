@@ -75,6 +75,11 @@ async def create_progress_stage(user_id, stage, deadline=None):
             "checked": False,
             "deadline": deadline or datetime.utcnow().isoformat()
         }
+        await supabase.table("progress").insert(data).execute()
+        print("✅ Прогресс успешно записан")
+    except Exception as e:
+        print(f"❌ Ошибка записи прогресса: {e}")
+
 
         print(f"👣 Попытка записи в progress: {data}")  # 👈 лог перед вставкой
 

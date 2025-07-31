@@ -20,3 +20,4 @@ confirm_clear_memory_keyboard.add(
     InlineKeyboardButton("✅ Да, стереть", callback_data="clear_confirmed"),
     InlineKeyboardButton("❌ Отмена", callback_data="clear_cancel")
 )
+
