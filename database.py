@@ -1,3 +1,4 @@
+from uuid import uuid4
 from supabase import create_client
 import os
 from datetime import datetime
@@ -67,6 +68,7 @@ async def get_goal_and_plan(pool, user_id):
 async def create_progress_stage(user_id, stage, deadline=None):
     try:
         data = {
+            "id": str(uuid4()),
             "user_id": user_id,
             "stage": stage,
             "completed": False,

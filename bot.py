@@ -124,12 +124,22 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
         reply = response["choices"][0]["message"]["content"]
         dialogues[user_id].append({"role": "assistant", "content": reply})
 
-        if "Цель:" in reply and "План действий" in reply:
-            goal = extract_between(reply, "Цель:", "План действий").strip()
+        if "Цель:" in reply and "План действий:" in reply:
+            goal = extract_between(reply, "Цель:", "План действий:").strip()
             plan = reply.split("План действий:")[-1].strip()
             await update_goal_and_plan(pool, user_id, goal, plan)
-            deadline = (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    
+            days = 7  # ← добавляем это
+            deadline = (datetime.datetime.now() + datetime.timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+
+            data = dialogues.get(user_id, {})
+            goal = data.get("goal")
+            reason = data.get("reason")
+            plan = f"Цель: {goal}\\nПочему важно: {reason}\\nСрок: {days} дней"
+
+            await update_goal_and_plan(pool, user_id, goal, plan)
             await create_progress_stage(pool, user_id, 1, deadline)
+        
 
         return reply
     except Exception as e:
