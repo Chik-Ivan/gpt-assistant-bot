@@ -14,15 +14,17 @@ import logging
 pool = None
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+pool = None
+
 async def create_pool():
     global pool
     try:
         pool = await asyncpg.create_pool(
-            dsn=os.getenv("DATABASE_URL"),
-            min_size=1,
-            max_size=5,
-            ssl='require'
-        )
+    dsn=os.getenv("DATABASE_URL"),
+    min_size=1,
+    max_size=5,
+    ssl='require'
+)
         logging.info("✅ Подключение к базе данных успешно!")
         return pool
     except Exception as e:
@@ -62,7 +64,7 @@ async def update_goal_and_plan(pool, user_id, goal, plan):
     except Exception as e:
         logging.error(f"Ошибка update_goal_and_plan: {e}")
 
-async def get_goal_and_plan(pool, user_id):
+async def get_goal_and_plan(user_id):
     try:
         async with pool.acquire() as conn:
             row = await conn.fetchrow("SELECT goal, plan FROM users WHERE user_id=$1", user_id)
