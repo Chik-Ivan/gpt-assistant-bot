@@ -483,4 +483,5 @@ async def start_first_response(message: Message, state: FSMContext):
 
     # Установка состояния FSM
     await message.answer("📌 Вопрос 1: Какой у тебя сейчас уровень в выбранной теме? Например: новичок, продолжающий или эксперт.", reply_markup=clear_memory_keyboard)
-    await GoalStates.level.set()
+    await GoalStates.level.set() 
+    

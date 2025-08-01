@@ -22,7 +22,6 @@ confirm_clear_memory_keyboard.add(
 )
 
 
-
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 start_choice_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -33,6 +32,17 @@ clear_memory_keyboard.add(KeyboardButton("🧹 Стереть память"))
 
 confirm_clear_memory_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 confirm_clear_memory_keyboard.add(
+    KeyboardButton("✅ Подтвердить"),
+    KeyboardButton("❌ Отмена")
+)
+
+# === Добавлено для bot.py ===
+
+menu_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+menu_keyboard.add(KeyboardButton("🧹 Стереть память"))
+
+confirm_clear_keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+confirm_clear_keyboard.add(
     KeyboardButton("✅ Подтвердить"),
     KeyboardButton("❌ Отмена")
 )

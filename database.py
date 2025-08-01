@@ -67,20 +67,6 @@ async def get_goal_and_plan(pool, user_id):
 from datetime import datetime  # убедись, что импорт есть
 
 
-async def create_progress_stage(user_id, stage, deadline=None):
-    try:
-        data = {
-            "user_id": user_id,
-            "stage": stage,
-            "completed": False,
-            "checked": False,
-            "deadline": deadline or datetime.utcnow().isoformat()
-        }
-        print(f"👣 Попытка записи в progress: {data}")
-        await supabase.table("progress").insert(data).execute()
-        print("✅ Прогресс успешно записан")
-    except Exception as e:
-        print(f"❌ Ошибка записи прогресса: {e}")
 async def get_progress(user_id):
     try:
         response = await supabase.table("progress").select("*").eq("user_id", user_id).execute()
@@ -168,4 +154,25 @@ async def delete_progress(user_id):
         print(f"🗑️ Прогресс пользователя {user_id} удалён.")
     except Exception as e:
         print(f"❌ Ошибка при удалении прогресса: {e}")
+
+
+import uuid
+from datetime import datetime
+
+async def create_progress_stage(user_id, stage_number=1, deadline=None):
+    try:
+        data = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "stage": stage_number,
+            "completed": False,
+            "checked": False,
+            "created_at": datetime.utcnow().isoformat(),
+            "deadline": deadline or datetime.utcnow().isoformat()
+        }
+        print(f"📤 Попытка вставки в progress: {data}")
+        await supabase.table("progress").insert(data).execute()
+        print("✅ Успешно записано в Supabase")
+    except Exception as e:
+        print(f"❌ Ошибка при записи в progress: {e}")
         
