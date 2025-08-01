@@ -1,5 +1,3 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from keyboards import start_choice_keyboard, support_button, clear_memory_keyboard, confirm_clear_memory_keyboard, confirm_clear_keyboard, menu_keyboard
 # -*- coding: utf-8 -*-
 import sys
 import logging
@@ -11,7 +9,6 @@ import os
 import random
 from datetime import datetime
 
-from database import delete_progress, clear_user_data
 from aiogram.dispatcher import FSMContext
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
@@ -26,7 +23,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from config import BOT_TOKEN, OPENAI_API_KEY
 from database import (
-    clear_user_data,
     create_pool,
     upsert_user,
     check_access,
@@ -37,9 +33,9 @@ from database import (
     create_next_stage,
     check_last_progress,
     get_progress,
-    get_users_for_reminder,
+    get_users_for_reminder
 )
-from keyboards import start_choice_keyboard, support_button, confirm_clear_keyboard, menu_keyboard
+from keyboards import start_choice_keyboard, support_button
 
 # Webhook config
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
@@ -133,7 +129,7 @@ async def chat_with_gpt(user_id: int, user_input: str) -> str:
             plan = reply.split("План действий:")[-1].strip()
             await update_goal_and_plan(pool, user_id, goal, plan)
             deadline = (datetime.datetime.now() + datetime.timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-            await create_progress_stage(user_id, 1, deadline)
+            await create_progress_stage(pool, user_id, 1, deadline)
 
         return reply
     except Exception as e:
@@ -210,7 +206,7 @@ async def handle_chat(message: Message):
     if waiting_for_days.get(user_id):
         days = extract_days(text)
         deadline = datetime.datetime.now() + datetime.timedelta(days=days)
-        await create_progress_stage(user_id, 1, deadline.strftime("%Y-%m-%d %H:%M:%S"))
+        await create_progress_stage(pool, user_id, 1, deadline.strftime("%Y-%m-%d %H:%M:%S"))
         await message.reply(f"✅ План установлен на {days} дней.")
         waiting_for_days[user_id] = False
         return
@@ -373,115 +369,3 @@ async def fsm_choice_callback(callback_query: CallbackQuery, state: FSMContext):
         await GoalStates.waiting_for_goal.set()
     elif callback_query.data == "fsm_continue":
         await callback_query.message.edit_text("▶️ Продолжаем с того места, где остановились.")
-
-
-
-from aiogram.dispatcher import FSMContext
-from states import GoalStates
-from aiogram import types
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from database import create_progress_stage, clear_user_data
-
-@dp.message_handler(commands="start", state="*")
-async def cmd_start(message: types.Message, state: FSMContext):
-    await state.finish()
-    user_id = message.from_user.id
-    await state.update_data(user_id=user_id)
-
-    # Проверим, начат ли уже опрос
-    data = await state.get_data()
-    if "goal" in data:
-        await message.answer("Ты уже начал анкету. Продолжить или начать заново?", reply_markup=start_choice_keyboard)
-    else:
-        await message.answer("Привет! Я твой личный ассистент-кондитер. Моя задача — помочь тебе определить и достичь своих целей в кондитерском деле. Начнём?")
-        await GoalStates.waiting_for_goal.set()
-
-@dp.callback_query_handler(lambda c: c.data == "fsm_restart", state="*")
-async def fsm_restart_handler(callback_query: types.CallbackQuery, state: FSMContext):
-    await state.finish()
-    await callback_query.message.answer("Ок, начнем заново. Напиши свою цель.")
-    await GoalStates.waiting_for_goal.set()
-
-@dp.callback_query_handler(lambda c: c.data == "fsm_continue", state="*")
-async def fsm_continue_handler(callback_query: types.CallbackQuery, state: FSMContext):
-    await callback_query.message.answer("Продолжаем. Напиши свою цель.")
-    await GoalStates.waiting_for_goal.set()
-
-@dp.message_handler(state=GoalStates.waiting_for_goal)
-async def process_goal(message: types.Message, state: FSMContext):
-    await state.update_data(goal=message.text)
-    await message.answer("Почему это важно для тебя?")
-    await GoalStates.waiting_for_reason.set()
-
-@dp.message_handler(state=GoalStates.waiting_for_reason)
-async def process_reason(message: types.Message, state: FSMContext):
-    await state.update_data(reason=message.text)
-    await message.answer("За сколько дней хочешь достичь цели?")
-    await GoalStates.waiting_for_deadline.set()
-
-@dp.message_handler(state=GoalStates.waiting_for_deadline)
-async def process_deadline(message: types.Message, state: FSMContext):
-    await state.update_data(deadline=message.text)
-    data = await state.get_data()
-
-    # Сохраняем прогресс
-    try:
-        await create_progress_stage(user_id=data['user_id'], stage="Этап 1")
-    except Exception as e:
-        await message.answer(f"Ошибка при сохранении прогресса: {e}")
-
-    await message.answer("Отлично! Мы записали твою цель и начинаем работу!")
-    await state.finish()
-
-
-
-@dp.callback_query_handler(lambda c: c.data == "start_over")
-async def restart_fsm(callback_query: CallbackQuery, state: FSMContext):
-    await state.finish()
-    user_id = callback_query.from_user.id
-    await delete_progress(user_id)
-    await bot.send_message(user_id, "🔄 Начинаем сначала. Введи свою цель.")
-    await GoalStates.waiting_for_goal.set()
-
-@dp.callback_query_handler(lambda c: c.data == "continue")
-async def continue_fsm(callback_query: CallbackQuery, state: FSMContext):
-    current_state = await state.get_state()
-    user_id = callback_query.from_user.id
-    if current_state:
-        await bot.send_message(user_id, "➡️ Продолжаем с текущего вопроса.")
-    else:
-        await bot.send_message(user_id, "🚫 Нет активного состояния.")
-
-
-@dp.callback_query_handler(lambda c: c.data == "confirm_clear")
-async def confirm_clear(callback_query: CallbackQuery):
-    await bot.send_message(callback_query.from_user.id, "⚠️ Вы точно хотите стереть память? Это действие необратимо.",
-                           reply_markup=confirm_clear_memory_keyboard)
-
-@dp.callback_query_handler(lambda c: c.data == "clear_confirmed")
-async def clear_confirmed(callback_query: CallbackQuery, state: FSMContext):
-    await state.finish()
-    await delete_progress(callback_query.from_user.id)
-    await bot.send_message(callback_query.from_user.id, "🧹 Память успешно стерта.")
-
-@dp.callback_query_handler(lambda c: c.data == "clear_cancel")
-async def clear_cancel(callback_query: CallbackQuery):
-    await bot.send_message(callback_query.from_user.id, "❌ Отмена действия.")
-
-
-
-@dp.message_handler(state=None)
-async def start_first_response(message: Message, state: FSMContext):
-    await upsert_user(message.from_user.id)
-    access = await check_access(message.from_user.id)
-    if not access:
-        await message.answer("❌ У вас нет доступа. Свяжитесь с поддержкой.", reply_markup=support_button)
-        return
-
-    # Создание первой стадии прогресса
-    await create_progress_stage(message.from_user.id, stage_number=1)
-
-    # Установка состояния FSM
-    await message.answer("📌 Вопрос 1: Какой у тебя сейчас уровень в выбранной теме? Например: новичок, продолжающий или эксперт.", reply_markup=clear_memory_keyboard)
-    await GoalStates.level.set()
-

@@ -2,7 +2,6 @@ from supabase import create_client
 import os
 from datetime import datetime
 
-
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_KEY")
 supabase = create_client(url, key)
@@ -11,23 +10,16 @@ import asyncpg
 import os
 import logging
 
-pool = None
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def create_pool():
-    global pool
     try:
-        pool = await asyncpg.create_pool(
-            dsn=os.getenv("DATABASE_URL"),
-            min_size=1,
-            max_size=5,
-            ssl='require'
-        )
+        pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
         logging.info("✅ Подключение к базе данных успешно!")
         return pool
     except Exception as e:
         logging.error(f"Ошибка подключения к базе: {e}")
-        
+
 # ✅ Пользователь
 
 async def upsert_user(pool, user_id, username, first_name, access, points, start_ts):
@@ -72,8 +64,19 @@ async def get_goal_and_plan(pool, user_id):
         return None, None
 
 # ========== PROGRESS ========== 
-from datetime import datetime  # убедись, что импорт есть
-
+async def create_progress_stage(user_id, stage, deadline=None):
+    try:
+        data = {
+            "user_id": user_id,
+            "stage": stage,
+            "completed": False,
+            "checked": False,
+            "deadline": deadline or datetime.utcnow().isoformat()
+        }
+        await supabase.table("progress").insert(data).execute()
+        print("✅ Прогресс успешно записан")
+    except Exception as e:
+        print(f"❌ Ошибка записи прогресса: {e}")
 
 async def get_progress(user_id):
     try:
@@ -155,42 +158,3 @@ async def get_users_for_reminder(pool):
 async def reset_user_progress(user_id: int):
     # Удаляем прогресс пользователя
     await supabase.table("progress").delete().eq("user_id", user_id).execute()
-
-async def delete_progress(user_id):
-    try:
-        await supabase.table("progress").delete().eq("user_id", user_id).execute()
-        print(f"🗑️ Прогресс пользователя {user_id} удалён.")
-    except Exception as e:
-        print(f"❌ Ошибка при удалении прогресса: {e}")
-
-
-import uuid
-from datetime import datetime
-
-
-import uuid
-from datetime import datetime
-
-async def create_progress_stage(user_id, stage_number=1, deadline=None):
-    try:
-        data = {
-            "id": str(uuid.uuid4()),
-            "user_id": user_id,
-            "stage": stage_number,
-            "completed": False,
-            "checked": False,
-            "created_at": datetime.utcnow().isoformat(),
-            "deadline": deadline or datetime.utcnow().isoformat()
-        }
-        print(f"📤 Попытка вставки в progress: {data}")
-        await supabase.table("progress").insert(data).execute()
-        print("✅ Успешно записано в Supabase")
-    except Exception as e:
-        print(f"❌ Ошибка при записи в progress: {e}")
-
-
-# ✅ Функция для очистки данных пользователя
-async def clear_user_data(user_id):
-    async with pool.acquire() as connection:
-        await connection.execute("DELETE FROM progress WHERE user_id = $1", user_id)
-        await connection.execute("DELETE FROM users WHERE user_id = $1", user_id)
