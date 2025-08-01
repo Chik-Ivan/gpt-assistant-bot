@@ -2,6 +2,7 @@ from supabase import create_client
 import os
 from datetime import datetime
 
+
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_KEY")
 supabase = create_client(url, key)
@@ -10,19 +11,26 @@ import asyncpg
 import os
 import logging
 
+pool = None
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 async def create_pool():
+    global pool
     try:
-        pool = await asyncpg.create_pool(DATABASE_URL, ssl='require')
+        pool = await asyncpg.create_pool(
+            dsn=os.getenv("DATABASE_URL"),
+            min_size=1,
+            max_size=5,
+            ssl='require'
+        )
         logging.info("✅ Подключение к базе данных успешно!")
         return pool
     except Exception as e:
         logging.error(f"Ошибка подключения к базе: {e}")
-
+        
 # ✅ Пользователь
 
-async def upsert_user(pool, user_id, username, first_name, access, points, start_ts):
+async def upsert_user(user_id, username, first_name, access, points, start_ts):
     try:
         async with pool.acquire() as conn:
             await conn.execute("""
@@ -179,3 +187,10 @@ async def create_progress_stage(user_id, stage_number=1, deadline=None):
         print("✅ Успешно записано в Supabase")
     except Exception as e:
         print(f"❌ Ошибка при записи в progress: {e}")
+
+
+# ✅ Функция для очистки данных пользователя
+async def clear_user_data(user_id):
+    async with pool.acquire() as connection:
+        await connection.execute("DELETE FROM progress WHERE user_id = $1", user_id)
+        await connection.execute("DELETE FROM users WHERE user_id = $1", user_id)

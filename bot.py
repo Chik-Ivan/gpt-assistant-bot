@@ -1,5 +1,5 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from keyboards import start_choice_keyboard, support_button, clear_memory_keyboard, confirm_clear_memory_keyboard
+from keyboards import start_choice_keyboard, support_button, clear_memory_keyboard, confirm_clear_memory_keyboard, confirm_clear_keyboard, menu_keyboard
 # -*- coding: utf-8 -*-
 import sys
 import logging
@@ -11,7 +11,7 @@ import os
 import random
 from datetime import datetime
 
-from database import delete_progress
+from database import delete_progress, clear_user_data
 from aiogram.dispatcher import FSMContext
 from aiogram.types import CallbackQuery
 from aiogram.dispatcher import FSMContext
@@ -26,6 +26,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from config import BOT_TOKEN, OPENAI_API_KEY
 from database import (
+    clear_user_data,
     create_pool,
     upsert_user,
     check_access,
@@ -36,9 +37,9 @@ from database import (
     create_next_stage,
     check_last_progress,
     get_progress,
-    get_users_for_reminder
+    get_users_for_reminder,
 )
-from keyboards import start_choice_keyboard, support_button
+from keyboards import start_choice_keyboard, support_button, confirm_clear_keyboard, menu_keyboard
 
 # Webhook config
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
@@ -379,7 +380,7 @@ from aiogram.dispatcher import FSMContext
 from states import GoalStates
 from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from database import create_progress_stage
+from database import create_progress_stage, clear_user_data
 
 @dp.message_handler(commands="start", state="*")
 async def cmd_start(message: types.Message, state: FSMContext):
