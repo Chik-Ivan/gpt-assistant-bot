@@ -159,6 +159,10 @@ async def delete_progress(user_id):
 import uuid
 from datetime import datetime
 
+
+import uuid
+from datetime import datetime
+
 async def create_progress_stage(user_id, stage_number=1, deadline=None):
     try:
         data = {
@@ -175,4 +179,3 @@ async def create_progress_stage(user_id, stage_number=1, deadline=None):
         print("✅ Успешно записано в Supabase")
     except Exception as e:
         print(f"❌ Ошибка при записи в progress: {e}")
-        

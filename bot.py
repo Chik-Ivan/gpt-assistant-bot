@@ -469,7 +469,6 @@ async def clear_cancel(callback_query: CallbackQuery):
 
 
 
-
 @dp.message_handler(state=None)
 async def start_first_response(message: Message, state: FSMContext):
     await upsert_user(message.from_user.id)
@@ -479,9 +478,10 @@ async def start_first_response(message: Message, state: FSMContext):
         return
 
     # Создание первой стадии прогресса
-    await create_progress_stage(message.from_user.id, stage="Уровень")
+    await create_progress_stage(message.from_user.id, stage_number=1)
 
     # Установка состояния FSM
     await message.answer("📌 Вопрос 1: Какой у тебя сейчас уровень в выбранной теме? Например: новичок, продолжающий или эксперт.", reply_markup=clear_memory_keyboard)
-    await GoalStates.level.set() 
+    await GoalStates.level.set()
+
     
