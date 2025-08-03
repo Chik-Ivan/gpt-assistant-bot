@@ -15,12 +15,12 @@ class GPT:
         dialog.append({"role": "user", "content": user_input})
 
         try:
-            response = self.openai.ChatCompletion.create(
+            response = self.openai.chat.completions.create(
                 model="gpt-4o",
                 messages=dialog,
                 temperature=0.7
             )
-            reply = response["choices"][0]["message"]["content"]
+            reply = response.choices[0].message.content
             logging.info(f"REPLY ОТ ГПТ {reply}")
             if "я не понял тебя" in reply.lower():
                 dialog.pop()

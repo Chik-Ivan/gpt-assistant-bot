@@ -1,9 +1,9 @@
-import openai
+from openai import OpenAI
 from config import OPENAI_API_KEY
 from gpt.gpt import GPT 
 
 
-openai.api_key = OPENAI_API_KEY
+client = OpenAI(OPENAI_API_KEY)
 
 
 system_prompt = (
@@ -29,4 +29,4 @@ system_prompt = (
     "Если пользователь отказывается от прохождения, то первыми словами в твоем ответе должны быть четко \"Очень жаль...\""
 )
 
-gpt = GPT(openai, system_prompt)
+gpt = GPT(client, system_prompt)
