@@ -17,8 +17,8 @@ class DatabaseRepository:
         query = """
         INSERT INTO users_data (id, goal, plan, messages, access, created_at)
         VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (telegram_id) DO NOTHING
-        RETURNING telegram_id
+        ON CONFLICT (id) DO NOTHING
+        RETURNING id
         """
         
         async with self.pool.acquire() as conn:
@@ -76,6 +76,7 @@ class DatabaseRepository:
 db = None
 
 async def get_db():
+    global db
     if db is None: 
         db = await DatabaseRepository.connect()
     return db
