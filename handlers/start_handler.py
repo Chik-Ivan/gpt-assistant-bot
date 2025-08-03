@@ -4,7 +4,7 @@ from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from keyboards.all_text_keyboards import get_main_keyboard
 from create_bot import logger
-from bot import db
+from database.database_repository import get_db
 from database.models import User
 
 
@@ -13,6 +13,7 @@ start_router = Router()
 
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
+    db = await get_db
     if state.get_state():
         await message.answer("Вы уже начали заполнять свой персональный план, " \
                             "хотите удалить заполненные данные или продолжим с того места, на котором остановились?")

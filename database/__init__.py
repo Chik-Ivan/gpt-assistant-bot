@@ -1,6 +1,5 @@
 import asyncpg
 import logging
-from supabase import create_client
 from config import DATABASE_URL
 
 async def create_pool():
