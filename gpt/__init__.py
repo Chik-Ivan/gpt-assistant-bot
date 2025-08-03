@@ -3,7 +3,7 @@ from config import OPENAI_API_KEY
 from gpt.gpt import GPT 
 
 
-client = OpenAI(OPENAI_API_KEY)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 
 system_prompt = (
