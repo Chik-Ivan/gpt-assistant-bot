@@ -13,11 +13,17 @@ start_router = Router()
 
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    db = await get_db()
-    if state.get_state():
+
+    cur_state = await state.get_state()
+    if cur_state is not None:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
                             "хотите удалить заполненные данные или продолжим с того места, на котором остановились?")
         return
+    
+    await message.answer("Тут должно быть сообщение с информацией о кнопках*", 
+                         reply_markup=get_main_keyboard(message.from_user.id))
+    
+    db = await get_db()    
     
     new_user = User(
         id=message.from_user.id,
@@ -40,5 +46,4 @@ async def cmd_start(message: Message, state: FSMContext):
         await message.answer("Произошла ошибка при регистрации. Пожалуйста, попробуйте ещё раз.")
         return
 
-    await message.answer("Тут должно быть сообщение с информацией о кнопках*", 
-                         reply_markup=get_main_keyboard(message.from_user.id))
+    
