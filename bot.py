@@ -1,18 +1,29 @@
-import logging
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.types import Message
-from aiogram.filters import CommandStart
-from decouple import config
+import asyncio
+from create_bot import bot, dp
+from aiogram.types import BotCommand, BotCommandScopeDefault
+from handlers.start_handler import start_router
 
-bot = Bot(token=config("BOT_TOKEN"), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher()
+async def main():
+    await set_commands()
+
+    dp.include_router(start_router)
+    
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 
-@dp.message(CommandStart())
-async def cmd_start(message: Message):
-    await message.answer("Библиотеки успешно обновились!")
+async def set_commands():
+    commands = [
+        BotCommand(command="start", description="start bot")
+    ]
+    await bot.set_my_commands(commands=commands, scope=BotCommandScopeDefault())
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
 
 
 
