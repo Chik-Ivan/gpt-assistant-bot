@@ -10,7 +10,7 @@ class GPT:
     async def chat_for_plan(self, dialog: Optional[List[Dict]], user_input: str) -> Tuple: # возвращается (диалог, ответ, статус-код)
         logging.info(f"Внутри класса: dialog - {dialog}")
         if dialog is None:
-            dialog = [{"role": "system", "content": self.system_prompt}]
+            dialog = [{"role": "system", "content": self.system_promt}]
             print("DIALOG IS NONE")
         dialog.append({"role": "user", "content": user_input})
 
