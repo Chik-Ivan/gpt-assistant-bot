@@ -1,16 +1,43 @@
 import asyncio
+from create_bot import logger
 from create_bot import bot, dp
 from aiogram.types import BotCommand, BotCommandScopeDefault
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from handlers.start_handler import start_router
+from aiohttp import web
+from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
+
+
+async def on_startup():
+    await set_commands()
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+
 
 async def main():
     await set_commands()
 
     dp.include_router(start_router)
+    dp.startup.register(on_startup)
+
+    app = web.Application()
+    webhook_requests_handler = SimpleRequestHandler(
+        dispatcher=dp,
+        bot=bot,
+    )
+
+    webhook_requests_handler.register(app, path=WEBHOOK_PATH)
+    setup_application(app, dp, bot=bot)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+
+    port = int(PORT)
+    site = web.TCPSite(runner, host='0.0.0.0', port=port)
     
     try:
-        await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
+        await site.start()
+        logger.info(f"Бот успешно запущен на порту {port}. URL: {WEBHOOK_URL}")
+        await asyncio.Event().wait()
     finally:
         await bot.session.close()
 
@@ -23,7 +50,10 @@ async def set_commands():
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен")
 
 
 

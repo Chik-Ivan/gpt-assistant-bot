@@ -1,12 +1,10 @@
-import os
-from dotenv import load_dotenv
+from decouple import config
 
-load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL")
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
-
-# Финальный URL, по которому Telegram будет отправлять запросы
-WEBHOOK_URL = f"https://{WEBHOOK_HOST}/webhook/{BOT_TOKEN}"
+BOT_TOKEN = config("BOT_TOKEN")
+OPENAI_API_KEY = config("OPENAI_API_KEY")
+DATABASE_URL = config("DATABASE_URL")
+WEBHOOK_HOST = config("WEBHOOK_HOST")
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
+WEBHOOK_URL = f"https://{WEBHOOK_HOST}{WEBHOOK_PATH}"
+PORT = 10000
