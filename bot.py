@@ -1,6 +1,5 @@
 import asyncio
-from create_bot import logger
-from create_bot import bot, dp
+from create_bot import bot, dp, logger
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from handlers.start_handler import start_router
