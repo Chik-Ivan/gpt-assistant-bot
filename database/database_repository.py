@@ -27,8 +27,8 @@ class DatabaseRepository:
                 query,
                 user.id,
                 user.goal,
-                user.plan,
-                user.messages,
+                json.dumps(user.plan) if user.plan else None,
+                json.dumps(user.messages) if user.messages else None,
                 user.access,
                 user.created_at
             )
@@ -41,11 +41,15 @@ class DatabaseRepository:
         async with self.pool.acquire() as conn:
             record = await conn.fetchrow(query, user_id)
             if record:
+
+                plan = json.loads(record['plan']) if record['plan'] else None
+                messages = json.loads(record['messages']) if record['messages'] else []
+
                 return User(
                     id=record['id'],
                     goal=record['goal'],
-                    plan=record['plan'],
-                    messages=record['messages'],
+                    plan=plan,
+                    messages=messages,
                     access=record['access'],
                     created_at=record['created_at']
                 )
