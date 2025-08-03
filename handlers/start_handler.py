@@ -3,6 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from keyboards.all_text_keyboards import get_main_keyboard
+from keyboards.all_inline_keyboards import get_continue_create_kb
 from create_bot import logger
 from database.database_repository import get_db
 from database.models import User
@@ -14,16 +15,19 @@ start_router = Router()
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
 
+    db = await get_db()  
+
+    # Сначала нужно будет проверить доступ
+
     cur_state = await state.get_state()
     if cur_state is not None:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
-                            "хотите удалить заполненные данные или продолжим с того места, на котором остановились?")
+                             "хотите удалить заполненные данные или продолжим с того места, на котором остановились?",
+                             reply_markup=get_continue_create_kb())
         return
     
     await message.answer("Тут должно быть сообщение с информацией о кнопках*", 
-                         reply_markup=get_main_keyboard(message.from_user.id))
-    
-    db = await get_db()    
+                         reply_markup=get_main_keyboard(message.from_user.id))  
     
     new_user = User(
         id=message.from_user.id,

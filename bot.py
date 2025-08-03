@@ -4,6 +4,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from handlers.start_handler import start_router
 from handlers.main_kb_handler import main_kb_router
+from handlers.plan_handlers import plan_router
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
 
@@ -18,6 +19,7 @@ async def main():
 
     dp.include_router(start_router)
     dp.include_router(main_kb_router)
+    dp.include_router(plan_router)
     dp.startup.register(on_startup)
 
     app = web.Application()

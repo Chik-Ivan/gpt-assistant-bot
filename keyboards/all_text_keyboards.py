@@ -10,7 +10,7 @@ def get_main_keyboard(user_id: int):
         [KeyboardButton(text="🆘 Обратиться в поддержку")]
     ]
     if user_id in ADMINS:
-        kb_list[-1].append(KeyboardButton(text="⚙️ Админ панель"))
+        kb_list[-1].extend([KeyboardButton(text="⚙️ Админ панель")])
     
     return ReplyKeyboardMarkup(keyboard=kb_list,
                                resize_keyboard=True,
