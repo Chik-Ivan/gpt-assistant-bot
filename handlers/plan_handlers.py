@@ -121,7 +121,7 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
 
 @plan_router.callback_query(F.data == "delete_data")
 async def delete_dialog(call: CallbackQuery, state: FSMContext):
-    state.clear()
+    await state.clear()
     try:
         db_repo = await db.get_repository()
         user = await db_repo.get_user(call.message.from_user.id)
