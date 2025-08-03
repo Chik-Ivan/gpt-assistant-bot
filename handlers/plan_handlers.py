@@ -19,6 +19,9 @@ plan_router = Router()
 @plan_router.message(F.text == "📋 Создать новый план")
 async def start_create_plan(message: Message, state: FSMContext):
     cur_state = await state.get_state()
+
+    logging.info(f"CUR_STATE: {cur_state}")
+
     if cur_state is not None:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
                              "хотите удалить заполненные данные или продолжим с того места, на котором остановились?",
@@ -33,9 +36,11 @@ async def start_create_plan(message: Message, state: FSMContext):
         logging.error("Не найден пользователь при попытке создания нового плана")
         message.answer("Ошибка! Обратитесь к администратору.")
         return
+    else:
+        logging.info(f"Пользователь получен, id: {user.id}")
     
     dialog, reply, status_code = gpt.chat_for_plan(user.messages, message.text)    
-
+    logging.info(f"Ответ от гпт: dialog - {dialog}; reply - {reply}; status_code - {status_code}")
     await message.answer(reply)
 
     match status_code:
@@ -123,5 +128,5 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         user.messages = None
         db.update_user(user)
         call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
-    except Exception:
-        call.message.answer("Произошла неизвестная ошибка:(")
+    except Exception as e:
+        call.message.answer(f"Произошла ошибка: {e}")
