@@ -1,3 +1,4 @@
+import json
 from database import create_pool
 from database.models import User
 from typing import Optional
@@ -66,8 +67,8 @@ class DatabaseRepository:
             await conn.execute(
                 query,
                 user.goal,
-                user.plan,
-                user.messages,
+                json.dumps(user.plan) if user.plan else None,
+                json.dumps(user.messages) if user.messages else None,
                 user.access,
                 user.id
             )
