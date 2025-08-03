@@ -12,5 +12,5 @@ logger = logging.getLogger(__name__)
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-dp = Dispatcher(storage=MemoryStorage)
+dp = Dispatcher(storage=MemoryStorage())
 db = DatabaseRepository.connect()
