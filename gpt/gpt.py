@@ -21,7 +21,7 @@ class GPT:
                 temperature=0.7
             )
             reply = response["choices"][0]["message"]["content"]
-            print(f"REPLY ОТ ГПТ {reply}")
+            logging.info(f"REPLY ОТ ГПТ {reply}")
             if "я не понял тебя" in reply.lower():
                 dialog.pop()
                 return (dialog, reply, 1)
@@ -33,5 +33,5 @@ class GPT:
 
 
         except Exception as e:
-            print(f"ОШИБКА В КЛАССЕ {e}")
-            return f"Ошибка GPT: {e}"
+            logging.error(f"Ошибка GPT {e}")
+            return (None, f"Ошибка {e}", 2)
