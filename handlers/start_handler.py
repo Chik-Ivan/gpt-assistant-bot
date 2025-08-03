@@ -15,12 +15,12 @@ start_router = Router()
 async def cmd_start(message: Message, state: FSMContext):
     db = await get_db
     if state.get_state():
-        await message.answer("Вы уже начали заполнять свой персональный план, " \
+        await message.answer("Вы уже начали заполнять свой персональный план, " 
                             "хотите удалить заполненные данные или продолжим с того места, на котором остановились?")
         return
     
     new_user = User(
-        telegram_id=message.from_user.id,
+        id=message.from_user.id,
         goal="",
         plan=None,
         messages=None,
