@@ -1,5 +1,5 @@
 import asyncpg
-from database_repository import DatabaseRepository
+from database.database_repository import DatabaseRepository
 
 class Database:
     def __init__(self):
