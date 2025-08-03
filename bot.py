@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 from decouple import config
 
 bot = Bot(token=config("BOT_TOKEN"), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 
 @dp.message(CommandStart())
