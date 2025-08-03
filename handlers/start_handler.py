@@ -3,7 +3,8 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from keyboards.all_text_keyboards import get_main_keyboard
-from create_bot import db, logger
+from create_bot import logger
+from bot import db
 from database.models import User
 
 

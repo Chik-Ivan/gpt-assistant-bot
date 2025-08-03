@@ -6,10 +6,13 @@ from handlers.start_handler import start_router
 from handlers.main_kb_handler import main_kb_router
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
+from database.database_repository import DatabaseRepository
 
+db = None
 
 async def on_startup():
     await set_commands()
+    db = await DatabaseRepository.connect()
     await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
 
 
