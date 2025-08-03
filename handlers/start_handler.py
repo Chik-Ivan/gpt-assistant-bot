@@ -13,7 +13,7 @@ start_router = Router()
 
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    db = await get_db
+    db = await get_db()
     if state.get_state():
         await message.answer("Вы уже начали заполнять свой персональный план, " 
                             "хотите удалить заполненные данные или продолжим с того места, на котором остановились?")
