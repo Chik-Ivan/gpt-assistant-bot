@@ -4,7 +4,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from keyboards.all_inline_keyboards import get_continue_create_kb
-from database.database_repository import get_db
+from database.core import db
 from gpt import gpt
 
 
@@ -28,32 +28,32 @@ async def start_create_plan(message: Message, state: FSMContext):
                              reply_markup=get_continue_create_kb())
         return
     
-    db = await get_db()
+    db_repo = await db.get_repository()
 
-    user = await db.get_user(message.from_user.id)
+    user = await db_repo.get_user(message.from_user.id)
 
     if user is None:
         logging.error("Не найден пользователь при попытке создания нового плана")
-        message.answer("Ошибка! Обратитесь к администратору.")
+        await message.answer("Ошибка! Обратитесь к администратору.")
         return
     else:
         logging.info(f"Пользователь получен, id: {user.id}")
     
-    dialog, reply, status_code = gpt.chat_for_plan(user.messages, message.text)    
+    dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
     logging.info(f"Ответ от гпт: dialog - {dialog}; reply - {reply}; status_code - {status_code}")
     await message.answer(reply)
 
     match status_code:
         case 0:
-            state.set_state(Plan.questions)
+            await state.set_state(Plan.questions)
             user.messages = dialog
-            db.update_user(user)
+            await db_repo.update_user(user)
         case 1:
             pass
         case 2:
-            state.clear()
+            await state.clear()
             user.messages = None
-            db.update_user(user)
+            await db_repo.update_user(user)
 
 
 @plan_router.message(Plan.questions)
@@ -62,71 +62,71 @@ async def questions_handler(message: Message, state: FSMContext):
     current_q = data.get("current_question", 0)
 
     if current_q == 5:
-        state.set_state(Plan.let_goal_and_plan)
+        await state.set_state(Plan.let_goal_and_plan)
 
-    db = await get_db()
+    db_repo = await db.get_repository()
 
-    user = await db.get_user(message.from_user.id)
+    user = await db_repo.get_user(message.from_user.id)
 
     if user is None:
         logging.error(f"Не найден пользователь при попытке заполнении анкеты."
                       f"Вопрос номер : {current_q}; id пользователя : {message.from_user.id}")
-        message.answer("Ошибка! Обратитесь к администратору.")
+        await message.answer("Ошибка! Обратитесь к администратору.")
         return
 
-    dialog, reply, status_code = gpt.chat_for_plan(user.messages, message.text)    
+    dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
 
     await message.answer(reply)
 
     match status_code:
         case 0:
             user.messages = dialog
-            db.update_user(user)
+            await db_repo.update_user(user)
         case 1:
             pass
         case 2:
-            state.clear()
+            await state.clear()
             user.messages = None
-            db.update_user(user)
+            await db_repo.update_user(user)
 
 
 @plan_router.message(Plan.let_goal_and_plan)
 async def let_goal_and_plan(message: Message, state: FSMContext):
-    db = await get_db()
+    db_repo = await db.get_repository()
 
     user = await db.get_user(message.from_user.id)
 
     if user is None:
         logging.error(f"Не найден пользователь при попытке получения плана."
                       f"id пользователя : {message.from_user.id}")
-        message.answer("Ошибка! Обратитесь к администратору.")
+        await message.answer("Ошибка! Обратитесь к администратору.")
         return
 
-    dialog, reply, status_code = gpt.chat_for_plan(user.messages, message.text)    
+    dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
 
     await message.answer(reply)
 
     match status_code:
         case 0:
             user.messages = dialog
-            db.update_user(user)
-            state.clear()
+            await db_repo.update_user(user)
+            await state.clear()
         case 1:
             pass
         case 2:
-            state.clear()
+            await state.clear()
             user.messages = None
-            db.update_user(user)
+            await db_repo.update_user(user)
 
 
 @plan_router.callback_query(F.data == "delete_data")
 async def delete_dialog(call: CallbackQuery, state: FSMContext):
     state.clear()
     try:
-        db = await get_db()
-        user = await db.get_user(call.message.from_user.id)
+        db_repo = await db.get_repository()
+        user = await db_repo.get_user(call.message.from_user.id)
         user.messages = None
-        db.update_user(user)
+        db_repo.update_user(user)
         call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         call.message.answer(f"Произошла ошибка: {e}")

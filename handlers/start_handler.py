@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from keyboards.all_text_keyboards import get_main_keyboard
 from keyboards.all_inline_keyboards import get_continue_create_kb
 from create_bot import logger
-from database.database_repository import get_db
+from database.core import db
 from database.models import User
 
 
@@ -15,7 +15,7 @@ start_router = Router()
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
 
-    db = await get_db()  
+    db_repo = await db.get_repository()  
 
     # Сначала нужно будет проверить доступ
 
@@ -38,7 +38,7 @@ async def cmd_start(message: Message, state: FSMContext):
     )
 
     try:
-        created = await db.create_user(new_user)
+        created = await db_repo.create_user(new_user)
         
         if created:
             logger.info(f"Новый пользователь добавлен: {message.from_user.id}")

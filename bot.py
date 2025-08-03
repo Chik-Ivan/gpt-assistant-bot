@@ -6,11 +6,13 @@ from handlers.start_handler import start_router
 from handlers.plan_handlers import plan_router
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
+from database.core import db
 
 
 async def on_startup():
     await set_commands()
     await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+    await db.connect()
 
 
 async def main():

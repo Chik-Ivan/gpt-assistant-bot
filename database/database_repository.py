@@ -72,11 +72,3 @@ class DatabaseRepository:
                 user.id
             )
 
-
-db = None
-
-async def get_db():
-    global db
-    if db is None: 
-        db = await DatabaseRepository.connect()
-    return db
