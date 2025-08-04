@@ -6,6 +6,7 @@ from aiogram.fsm.state import StatesGroup, State
 from keyboards.all_inline_keyboards import get_continue_create_kb
 from database.core import db
 from gpt import gpt
+from utils.all_utils import extract_between, extract_days 
 
 
 class Plan(StatesGroup):
@@ -74,17 +75,12 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         await call.message.answer(f"Произошла ошибка: {e}")
 
 
-@plan_router.callback_query()
-async def catch_all_callbacks(call: CallbackQuery):
-    logging.info("Общий обработчик", call.data)
-
-
 @plan_router.message(Plan.questions)
 async def questions_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     current_q = data.get("current_question", 0)
 
-    if current_q == 5:
+    if current_q == 3: # до этого вопроса было задано еще 4
         await state.set_state(Plan.let_goal_and_plan)
 
     db_repo = await db.get_repository()
