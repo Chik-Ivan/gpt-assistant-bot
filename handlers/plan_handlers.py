@@ -27,7 +27,7 @@ async def start_create_plan(message: Message, state: FSMContext):
 
     if cur_state is not None:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
-                             "хотите удалить заполненные данные или продолжим с того места, на котором остановились?",
+                            "для создания нового, вам нужно очистить данные о старом.",
                              reply_markup=get_continue_create_kb())
         return
     
@@ -42,6 +42,12 @@ async def start_create_plan(message: Message, state: FSMContext):
         else:
             logging.info(f"Пользователь получен, id: {user.id}")
 
+        if user.message:
+            await message.answer("Вы уже начали заполнять свой персональный план, " 
+                                "для создания нового, вам нужно очистить данные о старом.",
+                                reply_markup=get_continue_create_kb())
+            return
+    
         if user.goal:
             await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом старый.", 
                                  reply_markup=get_continue_create_kb())
@@ -135,6 +141,8 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
     match status_code:
         case 0:
             user.messages = dialog
+            user.goal = extract_between(reply, "цель:", "Вот твой план на первый месяц:")
+            user.plan = extract_between(reply, "Вот твой план на первый месяц:", "Я буду присылать тебе каждую неделю план. Не сливайся!")
             await db_repo.update_user(user)
             await state.clear()
         case 1:
