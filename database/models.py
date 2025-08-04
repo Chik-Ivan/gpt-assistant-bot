@@ -6,7 +6,7 @@ import asyncpg
 
 class User(BaseModel):
     id: int
-    goal: str
+    goal: Optional[str] = None
     plan: Optional[Dict[str, Dict]] = None
     messages: Optional[List[Dict]] = None
     access: bool = False
