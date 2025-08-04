@@ -39,7 +39,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
     try:
         created = await db_repo.create_user(new_user)
-        
+        logger.info(f"Попытка добавить пользователя с id: {new_user.id}")
         if created:
             logger.info(f"Новый пользователь добавлен: {message.from_user.id}")
         else:
