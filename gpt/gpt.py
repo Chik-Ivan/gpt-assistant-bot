@@ -24,7 +24,7 @@ class GPT:
             if "очень жаль" in reply.lower():
                 logging.info("ОЧЕНЬ ЖАЛЬ")
                 return (None, reply, 2)
-            elif "я не понял тебя" in reply.lower() or "Вопрос пройден" not in reply:
+            elif ("я не понял тебя" in reply.lower() or "Вопрос пройден" not in reply) and "Вот твой план на первый месяц:" not in reply:
                 reply = str(reply).replace("Вопрос пройден!", "")
                 dialog.append({"role": "assistant", "content": reply})
                 return (dialog, reply, 1)
