@@ -40,7 +40,6 @@ async def start_create_plan(message: Message, state: FSMContext):
         logging.info(f"Пользователь получен, id: {user.id}")
     
     dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
-    logging.info(f"Ответ от гпт: dialog - {dialog}; reply - {reply}; status_code - {status_code}")
     await message.answer(reply)
 
     match status_code:
@@ -82,6 +81,7 @@ async def questions_handler(message: Message, state: FSMContext):
         case 0:
             user.messages = dialog
             await db_repo.update_user(user)
+            await state.set_data(current_question=current_q + 1)
         case 1:
             pass
         case 2:
@@ -122,11 +122,12 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
 @plan_router.callback_query(F.data == "delete_data")
 async def delete_dialog(call: CallbackQuery, state: FSMContext):
     await state.clear()
+    
     try:
         db_repo = await db.get_repository()
         user = await db_repo.get_user(call.message.from_user.id)
         user.messages = None
-        db_repo.update_user(user)
-        call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
+        await db_repo.update_user(user)
+        await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
-        call.message.answer(f"Произошла ошибка: {e}")
+        await call.message.answer(f"Произошла ошибка: {e}")

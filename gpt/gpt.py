@@ -11,7 +11,6 @@ class GPT:
         logging.info(f"Внутри класса: dialog - {dialog}")
         if dialog is None:
             dialog = [{"role": "system", "content": self.system_promt}]
-            print("DIALOG IS NONE")
         dialog.append({"role": "user", "content": user_input})
 
         try:
@@ -21,11 +20,11 @@ class GPT:
                 temperature=0.7
             )
             reply = response.choices[0].message.content
-            logging.info(f"REPLY ОТ ГПТ {reply}")
             if "я не понял тебя" in reply.lower():
                 dialog.pop()
                 return (dialog, reply, 1)
             elif "очень жаль" in reply.lower():
+                logging.info("ОЧЕНЬ ЖАЛЬ")
                 return (None, reply, 2)
             else:
                 dialog.append({"role": "assistant", "content": reply})
