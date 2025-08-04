@@ -53,7 +53,8 @@ async def start_create_plan(message: Message, state: FSMContext):
                                  reply_markup=get_continue_create_kb())
             return
         
-        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
+        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
+                                                             message.text + "\nНапомиинаю, что после успешного ответа ты должен добавить к следующему сообщению \"Вопрос пройден!\"")    
         await message.answer(reply)
 
     match status_code:
@@ -104,7 +105,8 @@ async def questions_handler(message: Message, state: FSMContext):
             await message.answer("Ошибка! Обратитесь к администратору.")
             return
 
-        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
+        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
+                                                             message.text + "\nНапомиинаю, что после успешного ответа ты должен добавить к следующему сообщению \"Вопрос пройден!\"")    
 
         await message.answer(reply)
 
@@ -134,7 +136,8 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
             await message.answer("Ошибка! Обратитесь к администратору.")
             return
 
-        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
+        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
+                                                             message.text + "\nНапомиинаю, что после успешного ответа ты должен добавить к следующему сообщению \"Вопрос пройден!\"")    
 
         await message.answer(reply)
 
