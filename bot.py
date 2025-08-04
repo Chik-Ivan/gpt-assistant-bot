@@ -11,7 +11,9 @@ from database.core import db
 
 async def on_startup():
     await set_commands()
-    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+    await bot.set_webhook(WEBHOOK_URL, 
+                          drop_pending_updates=True,
+                          allowed_updates=["message", "callback_query", "inline_query", "edited_message"])
     await db.connect()
 
 
