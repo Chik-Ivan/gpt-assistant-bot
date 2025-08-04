@@ -105,7 +105,8 @@ async def questions_handler(message: Message, state: FSMContext):
         case 0:
             user.messages = dialog
             await db_repo.update_user(user)
-            await state.set_data(current_question=current_q + 1)
+            data["current_question"] = current_q + 1
+            await state.set_data(data)
         case 1:
             pass
         case 2:
