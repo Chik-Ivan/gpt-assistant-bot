@@ -32,7 +32,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         return
     
     db_repo = await db.get_repository()
-    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await db_repo.get_user(message.from_user.id)
 
         if user is None:
@@ -91,7 +91,7 @@ async def questions_handler(message: Message, state: FSMContext):
         await state.set_state(Plan.let_goal_and_plan)
 
     db_repo = await db.get_repository()
-    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await db_repo.get_user(message.from_user.id)
 
         if user is None:
@@ -121,7 +121,7 @@ async def questions_handler(message: Message, state: FSMContext):
 @plan_router.message(Plan.let_goal_and_plan)
 async def let_goal_and_plan(message: Message, state: FSMContext):
     db_repo = await db.get_repository()
-    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await db_repo.get_user(message.from_user.id)
 
         if user is None:
