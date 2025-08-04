@@ -7,7 +7,7 @@ import asyncpg
 class User(BaseModel):
     id: int
     goal: str
-    plan: Optional[Dict] = None
+    plan: Optional[Dict[Dict]] = None
     messages: Optional[List[Dict]] = None
     access: bool = False
     created_at: datetime = datetime.now(pytz.timezone('Europe/Moscow'))

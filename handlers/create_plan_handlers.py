@@ -1,4 +1,5 @@
 import logging
+import re
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -16,10 +17,10 @@ class Plan(StatesGroup):
     let_goal_and_plan = State()
 
 
-plan_router = Router()
+create_plan_router = Router()
 
 
-@plan_router.message(F.text == "📋 Создать новый план")
+@create_plan_router.message(F.text == "📋 Создать новый план")
 async def start_create_plan(message: Message, state: FSMContext):
     cur_state = await state.get_state()
 
@@ -70,7 +71,7 @@ async def start_create_plan(message: Message, state: FSMContext):
             await db_repo.update_user(user)
 
 
-@plan_router.callback_query(F.data == "delete_data")
+@create_plan_router.callback_query(F.data == "delete_data")
 async def delete_dialog(call: CallbackQuery, state: FSMContext):
     logging.info("Хендлер удаления запущен")
     await state.clear()
@@ -78,18 +79,17 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
     
     try:
         db_repo = await db.get_repository()
-        logging.info("Получен репо при удалении данных")
         user = await db_repo.get_user(call.from_user.id)
-        logging.info("Получен юзер при удалении данных")
         user.messages = None
+        user.plan = None
+        user.goal = None
         await db_repo.update_user(user)
-        logging.info("обновлен юзер при удалении данных")
         await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         await call.message.answer(f"Произошла ошибка: {e}")
 
 
-@plan_router.message(Plan.questions)
+@create_plan_router.message(Plan.questions)
 async def questions_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     current_q = data.get("current_question", 0)
@@ -126,7 +126,7 @@ async def questions_handler(message: Message, state: FSMContext):
             await db_repo.update_user(user)
 
 
-@plan_router.message(Plan.let_goal_and_plan)
+@create_plan_router.message(Plan.let_goal_and_plan)
 async def let_goal_and_plan(message: Message, state: FSMContext):
     db_repo = await db.get_repository()
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
@@ -146,7 +146,7 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
     match status_code:
         case 0:
             user.messages = dialog
-            user.goal = extract_between(reply, "цель:", "Вот твой план на первый месяц:")
+            user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "цель", "Вот твой план на первый месяц"))
             user.plan = parse_plan(extract_between(reply, "Вот твой план на первый месяц:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
             await db_repo.update_user(user)
             await state.clear()

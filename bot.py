@@ -3,7 +3,9 @@ from create_bot import bot, dp, logger
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from handlers.start_handler import start_router
-from handlers.plan_handlers import plan_router
+from handlers.create_plan_handlers import create_plan_router
+from handlers.current_plan_handler import current_plan_router
+from handlers.data_handler import data_router
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
 from database.core import db
@@ -20,8 +22,11 @@ async def on_startup():
 async def main():
     await set_commands()
 
-    dp.include_router(start_router)
-    dp.include_router(plan_router)
+    dp.include_routers(start_router,
+                       current_plan_router,
+                       data_router,
+                       create_plan_router)
+
     dp.startup.register(on_startup)
 
     app = web.Application()
@@ -66,69 +71,6 @@ if __name__ == '__main__':
 
 
 
-
-
-
-
-# # Глобальные переменные
-# dialogues = {}
-# waiting_for_days = {}
-# waiting_for_completion = {}
-# pool = None
-
-
-
-
-
-# # ==========================
-# # ✅ Хэндлеры команд
-# @dp.message_handler(commands=["start"])
-# async def start_handler(message: Message, state: FSMContext):
-#     user_id = message.from_user.id
-
-#     state_name = await state.get_state()
-#     if state_name:
-#         await message.answer("Ты уже начал проходить опрос. Продолжим с того места или начнём сначала?", reply_markup=start_choice_keyboard)
-#         return
-#     await upsert_user(pool, user_id, message.from_user.username or "", message.from_user.first_name or "", False, 0, datetime.utcnow())
-
-#     if not await check_access(pool, user_id):
-#         await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
-#         return
-
-#     dialogues[user_id] = [{"role": "system", "content": system_prompt}]
-#     await message.reply(await chat_with_gpt(user_id, "Начни диалог"))
-
-
-
-# # ✅ Общий обработчик
-# @dp.message_handler()
-# async def handle_chat(message: Message):
-#     user_id = message.from_user.id
-#     if not await check_access(pool, user_id):
-#         await message.reply("❌ Нет доступа. Обратитесь в поддержку.", reply_markup=support_button)
-#         return
-#     text = message.text
-#     if waiting_for_days.get(user_id):
-#         days = extract_days(text)
-#         deadline = datetime.datetime.now() + datetime.timedelta(days=days)
-#         await create_progress_stage(pool, user_id, 1, deadline.strftime("%Y-%m-%d %H:%M:%S"))
-#         await message.reply(f"✅ План установлен на {days} дней.")
-#         waiting_for_days[user_id] = False
-#         return
-#     if user_id in waiting_for_completion:
-#         if "да" in text.lower():
-#             await mark_progress_completed(pool, user_id, waiting_for_completion[user_id])
-#             await create_next_stage(pool, user_id, waiting_for_completion[user_id] + 1)
-#             await message.reply("🔥 Отлично! Продолжаем!")
-#         else:
-#             await message.reply("Понимаю. Продолжай стараться!")
-#         del waiting_for_completion[user_id]
-#         return
-#     response = await chat_with_gpt(user_id, text)
-#     await message.reply(response)
-#     if any(word in response.lower() for word in ["срок", "дедлайн"]):
-#         waiting_for_days[user_id] = True
 
 # # ==========================
 # # ✅ Напоминания
