@@ -43,7 +43,7 @@ class DatabaseRepository:
             if record:
 
                 plan = json.loads(record['plan']) if record['plan'] else None
-                messages = json.loads(record['messages']) if record['messages'] else []
+                messages = json.loads(record['messages']) if record['messages'] else None
 
                 return User(
                     id=record['id'],

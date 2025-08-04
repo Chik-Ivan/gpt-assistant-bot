@@ -26,6 +26,10 @@ async def main():
     webhook_requests_handler = SimpleRequestHandler(
         dispatcher=dp,
         bot=bot,
+        handle_callback_query=True,
+        handle_message=True,
+        handle_edited_updates=True,
+        handle_inline_query=True,
     )
 
     webhook_requests_handler.register(app, path=WEBHOOK_PATH)
