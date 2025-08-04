@@ -51,12 +51,10 @@ async def start_create_plan(message: Message, state: FSMContext):
         await message.answer(reply)
 
     match status_code:
-        case 0:
+        case 0 | 1:
             await state.set_state(Plan.questions)
             user.messages = dialog
             await db_repo.update_user(user)
-        case 1:
-            pass
         case 2:
             await state.clear()
             user.messages = None
