@@ -85,7 +85,7 @@ async def questions_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     current_q = data.get("current_question", 0)
 
-    if current_q == 3: # до этого вопроса было задано еще 4
+    if current_q == 4: # до этого вопроса было задано еще 4
         await state.set_state(Plan.let_goal_and_plan)
 
     db_repo = await db.get_repository()
