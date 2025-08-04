@@ -7,7 +7,7 @@ from aiogram.utils.chat_action import ChatActionSender
 from keyboards.all_inline_keyboards import get_continue_create_kb
 from database.core import db
 from gpt import gpt
-from utils.all_utils import extract_between, extract_days 
+from utils.all_utils import extract_between, extract_days, parse_plan
 from create_bot import bot
 
 
@@ -147,7 +147,7 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
         case 0:
             user.messages = dialog
             user.goal = extract_between(reply, "цель:", "Вот твой план на первый месяц:")
-            user.plan = extract_between(reply, "Вот твой план на первый месяц:", "Я буду присылать тебе каждую неделю план. Не сливайся!").strip('\n')
+            user.plan = parse_plan(extract_between(reply, "Вот твой план на первый месяц:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
             await db_repo.update_user(user)
             await state.clear()
         case 1:
