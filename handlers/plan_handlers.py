@@ -42,7 +42,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         else:
             logging.info(f"Пользователь получен, id: {user.id}")
 
-        if user.message:
+        if user.messages:
             await message.answer("Вы уже начали заполнять свой персональный план, " 
                                 "для создания нового, вам нужно очистить данные о старом.",
                                 reply_markup=get_continue_create_kb())
