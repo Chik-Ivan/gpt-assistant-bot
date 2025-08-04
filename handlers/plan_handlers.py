@@ -121,6 +121,7 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
 
 @plan_router.callback_query(F.data == "delete_data")
 async def delete_dialog(call: CallbackQuery, state: FSMContext):
+    logging.info("Хендлер удаления запущен")
     await state.clear()
     await call.answer()
     
@@ -135,3 +136,8 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         await call.message.answer(f"Произошла ошибка: {e}")
+
+
+@plan_router.callback_query()
+async def catch_all_callbacks(call: CallbackQuery):
+    logging.info("Общий обработчик", call.data)
