@@ -1,4 +1,5 @@
 import json
+import logging
 from database import create_pool
 from database.models import User
 from typing import Optional
@@ -53,6 +54,7 @@ class DatabaseRepository:
                     access=record['access'],
                     created_at=record['created_at']
                 )
+            logging.warning(f"Пользователь с id={user_id} не найден в БД")
             return None
         
     async def update_user(self, user: User) -> None:
