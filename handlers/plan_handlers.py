@@ -32,7 +32,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         return
     
     db_repo = await db.get_repository()
-    with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
         user = await db_repo.get_user(message.from_user.id)
 
         if user is None:
@@ -44,7 +44,7 @@ async def start_create_plan(message: Message, state: FSMContext):
 
         if user.goal:
             await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом старый.", 
-                                 reply_markup=get_continue_create_kb)
+                                 reply_markup=get_continue_create_kb())
             return
         
         dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
@@ -91,7 +91,7 @@ async def questions_handler(message: Message, state: FSMContext):
         await state.set_state(Plan.let_goal_and_plan)
 
     db_repo = await db.get_repository()
-    with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
         user = await db_repo.get_user(message.from_user.id)
 
         if user is None:
@@ -121,7 +121,7 @@ async def questions_handler(message: Message, state: FSMContext):
 @plan_router.message(Plan.let_goal_and_plan)
 async def let_goal_and_plan(message: Message, state: FSMContext):
     db_repo = await db.get_repository()
-    with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
+    async with ChatActionSender.typing(bot=bot, chat_id=message.chat.id):
         user = await db_repo.get_user(message.from_user.id)
 
         if user is None:
