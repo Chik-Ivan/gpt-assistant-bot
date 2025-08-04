@@ -3,10 +3,12 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from aiogram.utils.chat_action import ChatActionSender
 from keyboards.all_inline_keyboards import get_continue_create_kb
 from database.core import db
 from gpt import gpt
 from utils.all_utils import extract_between, extract_days 
+from create_bot import bot
 
 
 class Plan(StatesGroup):
@@ -30,18 +32,23 @@ async def start_create_plan(message: Message, state: FSMContext):
         return
     
     db_repo = await db.get_repository()
+    with ChatActionSender(bot=bot, chat_id=message.chat.id):
+        user = await db_repo.get_user(message.from_user.id)
 
-    user = await db_repo.get_user(message.from_user.id)
+        if user is None:
+            logging.error("Не найден пользователь при попытке создания нового плана")
+            await message.answer("Ошибка! Обратитесь к администратору.")
+            return
+        else:
+            logging.info(f"Пользователь получен, id: {user.id}")
 
-    if user is None:
-        logging.error("Не найден пользователь при попытке создания нового плана")
-        await message.answer("Ошибка! Обратитесь к администратору.")
-        return
-    else:
-        logging.info(f"Пользователь получен, id: {user.id}")
-    
-    dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
-    await message.answer(reply)
+        if user.goal:
+            await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом старый.", 
+                                 reply_markup=get_continue_create_kb)
+            return
+        
+        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
+        await message.answer(reply)
 
     match status_code:
         case 0:
@@ -84,18 +91,18 @@ async def questions_handler(message: Message, state: FSMContext):
         await state.set_state(Plan.let_goal_and_plan)
 
     db_repo = await db.get_repository()
+    with ChatActionSender(bot=bot, chat_id=message.chat.id):
+        user = await db_repo.get_user(message.from_user.id)
 
-    user = await db_repo.get_user(message.from_user.id)
+        if user is None:
+            logging.error(f"Не найден пользователь при попытке заполнении анкеты."
+                        f"Вопрос номер : {current_q}; id пользователя : {message.from_user.id}")
+            await message.answer("Ошибка! Обратитесь к администратору.")
+            return
 
-    if user is None:
-        logging.error(f"Не найден пользователь при попытке заполнении анкеты."
-                      f"Вопрос номер : {current_q}; id пользователя : {message.from_user.id}")
-        await message.answer("Ошибка! Обратитесь к администратору.")
-        return
+        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
 
-    dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
-
-    await message.answer(reply)
+        await message.answer(reply)
 
     match status_code:
         case 0:
@@ -114,18 +121,18 @@ async def questions_handler(message: Message, state: FSMContext):
 @plan_router.message(Plan.let_goal_and_plan)
 async def let_goal_and_plan(message: Message, state: FSMContext):
     db_repo = await db.get_repository()
+    with ChatActionSender(bot=bot, chat_id=message.chat.id):
+        user = await db_repo.get_user(message.from_user.id)
 
-    user = await db.get_user(message.from_user.id)
+        if user is None:
+            logging.error(f"Не найден пользователь при попытке получения плана."
+                        f"id пользователя : {message.from_user.id}")
+            await message.answer("Ошибка! Обратитесь к администратору.")
+            return
 
-    if user is None:
-        logging.error(f"Не найден пользователь при попытке получения плана."
-                      f"id пользователя : {message.from_user.id}")
-        await message.answer("Ошибка! Обратитесь к администратору.")
-        return
+        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
 
-    dialog, reply, status_code = await gpt.chat_for_plan(user.messages, message.text)    
-
-    await message.answer(reply)
+        await message.answer(reply)
 
     match status_code:
         case 0:

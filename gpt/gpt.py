@@ -20,14 +20,14 @@ class GPT:
                 temperature=0.7
             )
             reply = response.choices[0].message.content
-            if "я не понял тебя" in reply.lower():
-                dialog.pop()
-                return (dialog, reply, 1)
-            elif "очень жаль" in reply.lower():
+            
+            if "очень жаль" in reply.lower():
                 logging.info("ОЧЕНЬ ЖАЛЬ")
                 return (None, reply, 2)
+            elif "я не понял тебя" in reply.lower() or "Вопрос пройден" not in reply:
+                return (dialog, reply, 1)
             else:
-                dialog.append({"role": "assistant", "content": reply})
+                dialog.append({"role": "assistant", "content": str(reply).replace("Вопрос пройден!", "")})
                 return (dialog, reply, 0)
 
 
