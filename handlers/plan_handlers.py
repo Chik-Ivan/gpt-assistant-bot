@@ -55,6 +55,30 @@ async def start_create_plan(message: Message, state: FSMContext):
             await db_repo.update_user(user)
 
 
+@plan_router.callback_query(F.data == "delete_data")
+async def delete_dialog(call: CallbackQuery, state: FSMContext):
+    logging.info("Хендлер удаления запущен")
+    await state.clear()
+    await call.answer()
+    
+    try:
+        db_repo = await db.get_repository()
+        logging.info("Получен репо при удалении данных")
+        user = await db_repo.get_user(call.message.from_user.id)
+        logging.info("Получен юзер при удалении данных")
+        user.messages = None
+        await db_repo.update_user(user)
+        logging.info("обновлен юзер при удалении данных")
+        await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
+    except Exception as e:
+        await call.message.answer(f"Произошла ошибка: {e}")
+
+
+@plan_router.callback_query()
+async def catch_all_callbacks(call: CallbackQuery):
+    logging.info("Общий обработчик", call.data)
+
+
 @plan_router.message(Plan.questions)
 async def questions_handler(message: Message, state: FSMContext):
     data = await state.get_data()
@@ -118,26 +142,3 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
             user.messages = None
             await db_repo.update_user(user)
 
-
-@plan_router.callback_query(F.data == "delete_data")
-async def delete_dialog(call: CallbackQuery, state: FSMContext):
-    logging.info("Хендлер удаления запущен")
-    await state.clear()
-    await call.answer()
-    
-    try:
-        db_repo = await db.get_repository()
-        logging.info("Получен репо при удалении данных")
-        user = await db_repo.get_user(call.message.from_user.id)
-        logging.info("Получен юзер при удалении данных")
-        user.messages = None
-        await db_repo.update_user(user)
-        logging.info("обновлен юзер при удалении данных")
-        await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
-    except Exception as e:
-        await call.message.answer(f"Произошла ошибка: {e}")
-
-
-@plan_router.callback_query()
-async def catch_all_callbacks(call: CallbackQuery):
-    logging.info("Общий обработчик", call.data)
