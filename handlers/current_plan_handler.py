@@ -50,6 +50,7 @@ async def reminder_time_to_db(message: Message, state: FSMContext):
         new_time = extract_number(message.text)
         if not new_time or not (0 <= new_time <= 23):
             await message.answer("Некорректный ответ!\nПожалуйста, введите одно число от 0 до 23 (0, 12, 23)!")
+            return
         db_repo = await db.get_repository()
         cur_task = await db_repo.get_user_task(message.from_user.id)
         if not cur_task:
