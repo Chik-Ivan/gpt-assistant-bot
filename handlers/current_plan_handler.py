@@ -4,6 +4,7 @@ from aiogram.types import Message
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.filters import StateFilter
 from database.core import db
 from create_bot import bot
 from database.models import User
@@ -42,7 +43,7 @@ async def check_plan(user_id: int, message: Message, state: FSMContext) -> Optio
     
     return user
 
-@current_plan_router.message(F.text, state=SetTimeReminder.set_reminder_time)
+@current_plan_router.message(F.text, StateFilter(SetTimeReminder.set_reminder_time))
 async def reminder_time_to_db(message: Message, state: FSMContext):
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
 
