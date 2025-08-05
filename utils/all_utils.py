@@ -25,3 +25,10 @@ def parse_plan(plan_text: str) -> dict:
         for action, description in actions:
             result[week_key][action] = description.strip()
     return result
+
+def extract_number(text: str) -> int | None:
+    match = re.search(r'\b(\d+)\b', text)
+    if match:
+        return int(match.group(1))
+    else:
+        return None

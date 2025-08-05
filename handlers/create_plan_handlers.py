@@ -7,6 +7,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.chat_action import ChatActionSender
 from keyboards.all_inline_keyboards import get_continue_create_kb
 from database.core import db
+from database.models import UserTask
 from gpt import gpt
 from utils.all_utils import extract_between, extract_days, parse_plan
 from create_bot import bot
@@ -84,6 +85,11 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         user.plan = None
         user.goal = None
         await db_repo.update_user(user)
+        user_task = await db_repo.get_user_task(call.from_user.id)
+        if user_task:
+            user_task.current_step = 0
+            user_task.deadlines = None
+            db_repo.update_user_task(user_task)
         await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         await call.message.answer(f"Произошла ошибка: {e}")
@@ -149,6 +155,19 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
             user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "цель", "Вот твой план на первый месяц"))
             user.plan = parse_plan(extract_between(reply, "Вот твой план на первый месяц:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
             await db_repo.update_user(user)
+            user_task = await db_repo.get_user_task(message.from_user.id)
+            if user_task:
+                user_task.current_step = 0
+                user_task.deadlines = None
+                await db_repo.update_user_task(user_task)
+            else:
+                result = await db_repo.create_user_task()
+                if result:
+                    logging.info(f"Успешно добавлена задача для пользователя: {message.from_user.id}")
+                else:
+                    logging.error(f"Проблема создания новой задачи для пользователя: {message.from_user.id}."
+                                  "Скорее всего задача уже существует и была попытка создания новой, вместо обновления старой")
+
             await state.clear()
         case 1:
             pass

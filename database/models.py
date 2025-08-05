@@ -16,3 +16,15 @@ class User(BaseModel):
         json_encoders = {
             datetime: lambda dt: dt.isoformat()
         }
+
+
+class UserTask(BaseModel):
+    id: int
+    current_step: int = 0
+    reminder_time: int = 12
+    deadlines: Optional[List[datetime]] = None
+
+    class Config:
+        json_encoders = {
+            datetime: lambda dt: dt.isoformat()
+        }
