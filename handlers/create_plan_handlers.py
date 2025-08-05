@@ -161,7 +161,9 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
                 user_task.deadlines = None
                 await db_repo.update_user_task(user_task)
             else:
-                result = await db_repo.create_user_task(UserTask())
+                user_task = UserTask()
+                user_task.id = message.from_user.id
+                result = await db_repo.create_user_task(user_task)
                 if result:
                     logging.info(f"Успешно добавлена задача для пользователя: {message.from_user.id}")
                 else:
