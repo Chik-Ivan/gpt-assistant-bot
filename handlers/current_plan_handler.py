@@ -79,6 +79,7 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
         plan = user.plan
         if not plan:
             await message.answer("В данный момент у вас нет созданного плана. Воспользуйтесь кнопкой \"📋 Создать новый план\", чтобы создать его!")
+            return
 
         text = ["Текущий план выглядит так:\n"]
         for week, tasks in plan.items():
@@ -89,6 +90,7 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
         text.append("Продолжать работать и точно достигнешь всех своих целей!")
         text = "".join(text[:-2])
         await message.answer(text)
+
 
 @current_plan_router.message(F.text=="🕛 Задать удобное время напоминалкам")
 async def set_reminder_time(message: Message, state: FSMContext):
@@ -104,3 +106,29 @@ async def set_reminder_time(message: Message, state: FSMContext):
         cur_user_task = await db_repo.get_user_task(message.from_user.id)
         await message.answer("Напишите число от 0 до 23 - удобный час для получения напоминания по Московскому времени\n\n"
                              f"Текущее время -- {cur_user_task.reminder_time}:00 в день дедлайна по текущей задаче")
+        
+
+@current_plan_router.message(F.text=="❗ Статус текущего плана")
+async def current_status(message: Message, state: FSMContext):
+    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
+        user = await check_plan(message.from_user.id, message, state)
+        if not user:
+            return
+        if not user.goal:
+            await message.answer("Кажется у вас еще нет созданного плана, для начала создайте план:)")
+            return
+        db_repo = await db.get_repository()
+        user_task = await db_repo.get_user_task(user.id)
+        if not user_task.deadlines:
+            await message.answer("Кажется возникли какие-то неполадки или у вас отсутсвует план.\n"
+                                 "Попробуйте создать новый план.")
+            return
+        tasks = []
+        for week in user.plan.keys():
+            for type, task in user.plan[week].items():
+                tasks.append[f"{type}: {task}"]
+        text = (f"На данный момент вы на {user_task.step + 1} этапе плана!\n"
+                f"Дедлайн по текущей задаче: {user_task.deadlines[user_task.step]}\n"
+                f"Сейчас ваша задача звучит так:\n"
+                f"{tasks[user_task.step]}")
+        await message.answer(text)

@@ -1,5 +1,7 @@
 import logging
 import re
+from typing import Dict, List, Optional
+from datetime import datetime, timedelta
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -70,6 +72,8 @@ async def start_create_plan(message: Message, state: FSMContext):
         case 2:
             await state.clear()
             user.messages = None
+            await message.answer("Приношу извинения за неудачу в создании плана.\n"
+                                 "Давай попробуем еще раз, нажми на кнопку для создания плана.")
             await db_repo.update_user(user)
 
 
@@ -130,6 +134,8 @@ async def questions_handler(message: Message, state: FSMContext):
         case 2:
             await state.clear()
             user.messages = None
+            await message.answer("Приношу извинения за неудачу в создании плана.\n"
+                                 "Давай попробуем еще раз, нажми на кнопку для создания плана.")
             await db_repo.update_user(user)
 
 
@@ -159,7 +165,7 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
             user_task = await db_repo.get_user_task(message.from_user.id)
             if user_task:
                 user_task.current_step = 0
-                user_task.deadlines = None
+                user_task.deadlines = get_deadlines(user.plan)
                 await db_repo.update_user_task(user_task)
             else:
                 
@@ -178,3 +184,30 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
             user.messages = None
             await db_repo.update_user(user)
 
+
+def get_deadlines(plan: Optional[Dict[str, Dict]]) -> List[datetime]:
+    if not plan:
+        return []
+
+    deadlines = []
+    today = datetime.now()
+    today = datetime(
+        year=today.year,
+        month=today.month,
+        day=today.day,
+        hour=12,
+        minute=0,
+        second=0,
+    )
+
+
+    for week in plan.keys():        
+        for index, task in enumerate(plan[week].keys()):
+            if index == 2:
+                today += timedelta(days=3)
+                deadlines.append(today)
+                continue
+            today += timedelta(days=2)
+            deadlines.append(today)
+
+    return deadlines
