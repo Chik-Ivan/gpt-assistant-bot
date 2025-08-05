@@ -7,6 +7,7 @@ from keyboards.all_inline_keyboards import get_continue_create_kb
 from create_bot import logger
 from database.core import db
 from database.models import User
+from current_plan_handler import SetTimeReminder
 
 
 start_router = Router()
@@ -20,7 +21,7 @@ async def cmd_start(message: Message, state: FSMContext):
     # Сначала нужно будет проверить доступ
 
     cur_state = await state.get_state()
-    if cur_state is not None:
+    if cur_state is not None and cur_state != SetTimeReminder.set_reminder_time:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
                              "хотите удалить заполненные данные или продолжим с того места, на котором остановились?",
                              reply_markup=get_continue_create_kb())
