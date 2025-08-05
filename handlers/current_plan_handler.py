@@ -127,8 +127,8 @@ async def current_status(message: Message, state: FSMContext):
         for week in user.plan.keys():
             for type, task in user.plan[week].items():
                 tasks.append(f"{type}: {task}")
-        text = (f"На данный момент вы на {user_task.current_step + 1} этапе плана!\n"
-                f"Дедлайн по текущей задаче: {user_task.deadlines[user_task.current_step].strftime('%d.%m.%Ycurrent_')}\n"
+        text = (f"На данный момент вы на {user_task.current_step + 1} этапе плана из {len(user_task.deadlines)}!\n"
+                f"Дедлайн по текущей задаче: {user_task.deadlines[user_task.current_step].strftime('%d.%m.%Y')}\n"
                 f"Сейчас ваша задача звучит так:\n"
                 f"{tasks[user_task.current_step]}")
         await message.answer(text)

@@ -1,5 +1,6 @@
 import logging
 import re
+import json
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from aiogram import Router, F
@@ -161,14 +162,21 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
 
         dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
                                                              message.text)    
-
+        json_text = extract_between(reply, "<json>", "</json>")
+        if json_text:
+            reply = re.sub(r"<json>.*?</json>", "", reply, flags=re.DOTALL).strip()
+            json_text = json.loads(json_text)
         await message.answer(reply)
         logging.info("Бот вернул план пользователю")
     match status_code:
         case 0:
+            if json_text:
+                user.goal = json_text.get("goal")
+                user.plan = json_text.get("plan")
+            else:
+                user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "Итак, твоя цель", "Вот твой план"))
+                user.plan = parse_plan(extract_between(reply, "Вот твой план:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
             user.messages = dialog
-            user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "Итак, твоя цель", "Вот твой план"))
-            user.plan = parse_plan(extract_between(reply, "Вот твой план:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
             await db_repo.update_user(user)
             user_task = await db_repo.get_user_task(message.from_user.id)
             if user_task:
