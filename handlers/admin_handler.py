@@ -17,7 +17,7 @@ async def get_admin_panel(message: Message, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
     if not user:
         return
-    message.answer("Команды для админа:\n\n"
+    await message.answer("Команды для админа:\n\n"
                    "/access_true + <id пользователя> выдает юзеру доступ к боту\n\n"
                    "/access_false + <id пользователя> забирает у пользователя доступ\n\n"
                    "/add_admin + <id пользователя> добавляет админа с указаным id\n\n"
