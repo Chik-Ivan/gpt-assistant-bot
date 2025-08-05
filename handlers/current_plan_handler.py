@@ -42,7 +42,7 @@ async def check_plan(user_id: int, message: Message, state: FSMContext) -> Optio
     
     return user
 
-@current_plan_router.message(F.text, SetTimeReminder.set_reminder_time)
+@current_plan_router.message(F.text, state=SetTimeReminder.set_reminder_time)
 async def reminder_time_to_db(message: Message, state: FSMContext):
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
 
@@ -55,6 +55,9 @@ async def reminder_time_to_db(message: Message, state: FSMContext):
             await message.answer("Упс.. Кажется произошла ошибка!\n"
                                  "Возможно вы еще не создавали свой персональный план,"
                                  " если это не так, то обратитесь к администратору по кнопке ниже.")
+        cur_task.reminder_time = new_time
+        await db_repo.update_user_task(cur_task)
+        await message.answer(f"Теперь напоминания будут приходить в {new_time}:00 МСК в день дедлайна!")
 
 @current_plan_router.message(F.text=="🎯 Текущая цель")
 async def get_current_goal(message: Message, state: FSMContext):
