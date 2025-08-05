@@ -51,7 +51,7 @@ class DatabaseRepository:
                 user_task.id,
                 user_task.current_step,
                 user_task.reminder_time,
-                user_task.deadlines
+                json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None
             )
             return result is not None
         
@@ -130,6 +130,6 @@ class DatabaseRepository:
                 query,
                 user_task.current_step,
                 user_task.reminder_time,
-                json.dumps(user_task.deadlines) if user_task.deadlines else None,
+                json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None,
                 user_task.id
             )
