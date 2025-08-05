@@ -99,7 +99,7 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         if user_task:
             user_task.current_step = 0
             user_task.deadlines = None
-            db_repo.update_user_task(user_task)
+            await db_repo.update_user_task(user_task)
         await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         await call.message.answer(f"Произошла ошибка: {e}")
