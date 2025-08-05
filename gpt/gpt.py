@@ -24,7 +24,7 @@ class GPT:
             if "очень жаль" in reply.lower():
                 logging.info("ОЧЕНЬ ЖАЛЬ")
                 return (None, reply, 2)
-            elif "я не понял тебя" in reply.lower():
+            elif "я не понял тебя" in reply.lower() or "давай уточним" in reply.lower():
                 reply = str(reply).replace("Вопрос пройден!", "")
                 dialog.append({"role": "assistant", "content": reply})
                 return (dialog, reply, 1)

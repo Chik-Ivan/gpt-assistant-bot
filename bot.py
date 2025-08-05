@@ -6,6 +6,7 @@ from handlers.start_handler import start_router
 from handlers.create_plan_handlers import create_plan_router
 from handlers.current_plan_handler import current_plan_router
 from handlers.data_handler import data_router
+from handlers.admin_handler import admin_router
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
 from database.core import db
@@ -25,6 +26,7 @@ async def main():
     dp.include_routers(start_router,
                        current_plan_router,
                        data_router,
+                       admin_router,
                        create_plan_router)
 
     dp.startup.register(on_startup)
