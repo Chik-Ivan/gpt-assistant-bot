@@ -59,6 +59,7 @@ async def reminder_time_to_db(message: Message, state: FSMContext):
         cur_task.reminder_time = new_time
         await db_repo.update_user_task(cur_task)
         await message.answer(f"Теперь напоминания будут приходить в {new_time}:00 МСК в день дедлайна!")
+        await state.clear()
 
 @current_plan_router.message(F.text=="🎯 Текущая цель")
 async def get_current_goal(message: Message, state: FSMContext):

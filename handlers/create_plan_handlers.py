@@ -11,6 +11,7 @@ from database.models import UserTask
 from gpt import gpt
 from utils.all_utils import extract_between, extract_days, parse_plan
 from create_bot import bot
+from handlers.current_plan_handler import SetTimeReminder
 
 
 class Plan(StatesGroup):
@@ -27,7 +28,7 @@ async def start_create_plan(message: Message, state: FSMContext):
 
     logging.info(f"CUR_STATE: {cur_state}")
 
-    if cur_state is not None:
+    if cur_state is not None and cur_state != SetTimeReminder.set_reminder_time:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
                             "для создания нового, вам нужно очистить данные о старом.",
                              reply_markup=get_continue_create_kb())
