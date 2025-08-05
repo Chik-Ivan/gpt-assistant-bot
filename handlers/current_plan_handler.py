@@ -98,7 +98,7 @@ async def set_reminder_time(message: Message, state: FSMContext):
         if not user.goal:
             await message.answer("Кажется у вас еще нет созданного плана, для начала создайте план:)")
             return
-        state.set_state(SetTimeReminder.set_reminder_time)
+        await state.set_state(SetTimeReminder.set_reminder_time)
         db_repo = await db.get_repository()
         cur_user_task = await db_repo.get_user_task(message.from_user.id)
         await message.answer("Напишите число от 0 до 23 - удобный час для получения напоминания по Московскому времени\n\n"
