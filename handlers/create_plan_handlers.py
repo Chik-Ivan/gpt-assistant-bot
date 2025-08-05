@@ -65,13 +65,18 @@ async def start_create_plan(message: Message, state: FSMContext):
         await message.answer(reply)
 
     match status_code:
-        case 0 | 1:
+        case 0:
             await state.set_state(Plan.questions)
             user.messages = dialog
             await db_repo.update_user(user)
+            logging.info("Успешный старт опроса для заполнения анкеты")
+        case 1:
+            logging.info("Статус код 1 при старте заполнения анкеты")
+            pass
         case 2:
             await state.clear()
             user.messages = None
+            logging.info("Статус код 2 при старте заполнения анкеты")
             await message.answer("Приношу извинения за неудачу в создании плана.\n"
                                  "Давай попробуем еще раз, нажми на кнопку для создания плана.")
             await db_repo.update_user(user)
@@ -104,7 +109,7 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
 async def questions_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     current_q = data.get("current_question", 0)
-
+    logging.info(f"CURRENT_Q: {current_q}")
     if current_q == 4: # до этого вопроса было задано еще 4
         await state.set_state(Plan.let_goal_and_plan)
 
@@ -129,11 +134,14 @@ async def questions_handler(message: Message, state: FSMContext):
             await db_repo.update_user(user)
             data["current_question"] = current_q + 1
             await state.set_data(data)
+            logging.info("Статус код 0 при заполнении анкеты")
         case 1:
+            logging.info("Статус код 1 при заполнении анкеты")
             pass
         case 2:
             await state.clear()
             user.messages = None
+            logging.info("Статус код 2 при заполнении анкеты")
             await message.answer("Приношу извинения за неудачу в создании плана.\n"
                                  "Давай попробуем еще раз, нажми на кнопку для создания плана.")
             await db_repo.update_user(user)
@@ -155,7 +163,7 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
                                                              message.text)    
 
         await message.answer(reply)
-
+        logging.info("Бот вернул план пользователю")
     match status_code:
         case 0:
             user.messages = dialog
@@ -177,11 +185,14 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
                                   "Скорее всего задача уже существует и была попытка создания новой, вместо обновления старой")
 
             await state.clear()
+            logging.info("Статус код 0 при завершении заполнения анкеты")
         case 1:
+            logging.info("Статус код 1 при завершении заполнения анкеты")
             pass
         case 2:
             await state.clear()
             user.messages = None
+            logging.info("Статус код 2 при завершении заполнения анкеты")
             await db_repo.update_user(user)
 
 
