@@ -153,8 +153,8 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
     match status_code:
         case 0:
             user.messages = dialog
-            user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "Итак, твоя цель", "Вот твой план на первый месяц"))
-            user.plan = parse_plan(extract_between(reply, "Вот твой план на первый месяц:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
+            user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "Итак, твоя цель", "Вот твой план"))
+            user.plan = parse_plan(extract_between(reply, "Вот твой план:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
             await db_repo.update_user(user)
             user_task = await db_repo.get_user_task(message.from_user.id)
             if user_task:
