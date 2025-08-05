@@ -7,7 +7,7 @@ from keyboards.all_inline_keyboards import get_continue_create_kb
 from create_bot import logger
 from database.core import db
 from database.models import User
-from current_plan_handler import SetTimeReminder
+from handlers.current_plan_handler import SetTimeReminder
 
 
 start_router = Router()
