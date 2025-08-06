@@ -12,7 +12,7 @@ from database.models import User
 from typing import Optional
 from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb
 from utils.all_utils import extract_number
-from gpt.gpt import GPT 
+from gpt import gpt 
 
 
 current_plan_router = Router()
@@ -168,7 +168,7 @@ async def ask_question(call: CallbackQuery, state: FSMContext):
             f"{tasks[user_task.current_step//3 + 2]} до {user_task.deadlines[user_task.current_step//3 + 2].strftime('%d.%m.%Y')}\n\n"
             )
     
-    question_dialog, reply, status_code = await GPT.ask_question_gpt(question_dialog=user.question_dialog, plan_part=text)
+    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, plan_part=text)
     await call.message.answer(reply)
     user.question_dialog = question_dialog
     await db_repo.update_user(user)
@@ -226,7 +226,7 @@ async def ask_question_in_dialog(message: Message, state: FSMContext):
     if not user:
         return
     db_repo = await db.get_repository()
-    question_dialog, reply, status_code = await GPT.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text)
+    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text)
     if status_code == 1:
         await state.clear()
         await message.answer(reply)
