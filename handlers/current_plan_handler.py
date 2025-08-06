@@ -34,6 +34,7 @@ async def check_plan(user_id: int, message: Message|CallbackQuery, state: FSMCon
         return None
     elif cur_state == AskQuestion.ask_question:
         await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?", reply_markup=stop_question_kb())
+        return
     
     db_repo = await db.get_repository()
     user = await db_repo.get_user(user_id)

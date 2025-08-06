@@ -38,7 +38,8 @@ async def start_create_plan(message: Message, state: FSMContext):
         return None
     elif cur_state == AskQuestion.ask_question:
         await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?")
-    
+        return
+
     db_repo = await db.get_repository()
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await db_repo.get_user(message.from_user.id)

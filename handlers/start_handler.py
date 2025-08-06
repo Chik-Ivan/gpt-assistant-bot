@@ -3,11 +3,11 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from keyboards.all_text_keyboards import get_main_keyboard
-from keyboards.all_inline_keyboards import get_continue_create_kb
+from keyboards.all_inline_keyboards import get_continue_create_kb, stop_question_kb
 from create_bot import logger
 from database.core import db
 from database.models import User
-from handlers.current_plan_handler import SetTimeReminder
+from handlers.current_plan_handler import AskQuestion
 from handlers.create_plan_handlers import start_create_plan
 
 
@@ -22,10 +22,13 @@ async def cmd_start(message: Message, state: FSMContext):
     # Сначала нужно будет проверить доступ
 
     cur_state = await state.get_state()
-    if cur_state is not None and cur_state != SetTimeReminder.set_reminder_time:
+    if cur_state is not None and cur_state != AskQuestion.ask_question:
         await message.answer("Вы уже начали заполнять свой персональный план, " 
                              "хотите удалить заполненные данные или продолжим с того места, на котором остановились?",
                              reply_markup=get_continue_create_kb())
+        return
+    elif cur_state == AskQuestion.ask_question:
+        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?", reply_markup=stop_question_kb())
         return
     
     # await message.answer("Привет, я бот-кондитер, который поможет тебе в реализации твоих целей!\n\n"
