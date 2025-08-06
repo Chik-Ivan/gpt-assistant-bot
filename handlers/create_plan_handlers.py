@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.chat_action import ChatActionSender
 from keyboards.all_inline_keyboards import get_continue_create_kb
+from keyboards.all_text_keyboards import get_main_keyboard
 from database.core import db
 from database.models import UserTask
 from gpt import gpt
@@ -66,7 +67,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         
         dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
                                                              message.text)    
-        await message.answer(reply)
+        await message.answer(reply, reply_markup=get_main_keyboard())
 
     match status_code:
         case 0:
