@@ -205,7 +205,8 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     ]
     user_task.deadlines = adjusted
     user_task.current_step = adjust_index + 1
-    await db_repo.update_user_task(user_task)    
+    await db_repo.update_user_task(user_task)   
+    await call.message.answer("Дедлайны передвинуты") 
 
 # Этот хендлер должен находиться в отдельном .py файле, но я вношу быстрые правки, 
 # поэтому если это видит другой программист, то перенеси пж
