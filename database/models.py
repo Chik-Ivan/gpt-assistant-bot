@@ -9,6 +9,7 @@ class User(BaseModel):
     goal: Optional[str] = None
     plan: Optional[Dict[str, Dict]] = None
     messages: Optional[List[Dict]] = None
+    question_dialog: Optional[List[Dict]] = None
     access: bool = False
     created_at: datetime = datetime.now(pytz.timezone('Europe/Moscow'))
 

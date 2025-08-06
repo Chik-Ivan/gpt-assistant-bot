@@ -18,8 +18,8 @@ class DatabaseRepository:
     async def create_user(self, user: User) -> bool:
         """Добавление нового пользователя"""
         query = """
-        INSERT INTO users_data (id, goal, plan, messages, access, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users_data (id, goal, plan, messages, access, created_at, question_dialog)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (id) DO NOTHING
         RETURNING id
         """
@@ -32,7 +32,8 @@ class DatabaseRepository:
                 json.dumps(user.plan) if user.plan else None,
                 json.dumps(user.messages) if user.messages else None,
                 user.access,
-                user.created_at
+                user.created_at,
+                json.dumps(user.question_dialog) if user.question_dialog else None
             )
             return result is not None
         
@@ -64,12 +65,14 @@ class DatabaseRepository:
             if record:
                 plan = json.loads(record['plan']) if record['plan'] else None
                 messages = json.loads(record['messages']) if record['messages'] else None
+                question_dialog = json.loads(record['question_dialog']) if record['question_dialog'] else None
 
                 return User(
                     id=record['id'],
                     goal=record['goal'],
                     plan=plan,
                     messages=messages,
+                    question_dialog=question_dialog,
                     access=record['access'],
                     created_at=record['created_at']
                 )
@@ -100,8 +103,9 @@ class DatabaseRepository:
             goal = $1,
             plan = $2,
             messages = $3,
-            access = $4
-        WHERE id = $5
+            question_dialog = $4,
+            access = $5
+        WHERE id = $6
         """
         
         async with self.pool.acquire() as conn:
@@ -110,6 +114,7 @@ class DatabaseRepository:
                 user.goal,
                 json.dumps(user.plan) if user.plan else None,
                 json.dumps(user.messages) if user.messages else None,
+                json.dumps(user.question_dialog) if user.question_dialog else None,
                 user.access,
                 user.id
             )

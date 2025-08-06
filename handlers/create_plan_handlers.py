@@ -14,7 +14,7 @@ from database.models import UserTask
 from gpt import gpt
 from utils.all_utils import extract_between, extract_days, parse_plan
 from create_bot import bot
-from handlers.current_plan_handler import SetTimeReminder
+from handlers.current_plan_handler import AskQuestion
 
 
 class Plan(StatesGroup):
@@ -25,17 +25,19 @@ class Plan(StatesGroup):
 create_plan_router = Router()
 
 
-@create_plan_router.message(F.text == "📋 Создать новый план")
+@create_plan_router.message(F.text == "📋 Создать план")
 async def start_create_plan(message: Message, state: FSMContext):
     cur_state = await state.get_state()
 
     logging.info(f"CUR_STATE: {cur_state}")
 
-    if cur_state is not None and cur_state != SetTimeReminder.set_reminder_time:
-        await message.answer("Вы уже начали заполнять свой персональный план, " 
-                            "для создания нового, вам нужно очистить данные о старом.",
+    if cur_state is not None and cur_state != AskQuestion.ask_question:
+        await message.answer("В данный момент я пытаюсь заполнить вашу анкету для нового плана, " 
+                            "вы можете согласиться на потерю данных и начать пользоваться остальными командами без ограничений.",
                              reply_markup=get_continue_create_kb())
-        return
+        return None
+    elif cur_state == AskQuestion.ask_question:
+        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?")
     
     db_repo = await db.get_repository()
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
@@ -167,7 +169,6 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
             reply = re.sub(r"<json>.*?</json>", "", reply, flags=re.DOTALL).strip()
             json_text = json.loads(json_text)
         await message.answer(reply)
-        logging.info("Бот вернул план пользователю")
     match status_code:
         case 0:
             if json_text:
@@ -193,6 +194,8 @@ async def let_goal_and_plan(message: Message, state: FSMContext):
                                   "Скорее всего задача уже существует и была попытка создания новой, вместо обновления старой")
 
             await state.clear()
+            logging.info("Бот вернул план пользователю")
+
             logging.info("Статус код 0 при завершении заполнения анкеты")
         case 1:
             logging.info("Статус код 1 при завершении заполнения анкеты")
