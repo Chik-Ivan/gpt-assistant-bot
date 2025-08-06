@@ -151,6 +151,7 @@ async def current_status(message: Message, state: FSMContext):
 @current_plan_router.callback_query(F.data=="ask_question")
 async def ask_question(call: CallbackQuery, state: FSMContext):
     user = await check_plan(call.from_user.id, call, state)
+    await call.answer()
     if not user:
         return
     await state.set_state(AskQuestion.ask_question)
