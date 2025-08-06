@@ -27,14 +27,25 @@ async def check_plan(user_id: int, message: Message|CallbackQuery, state: FSMCon
 
     logging.info(f"CUR_STATE: {cur_state}")
 
+    async def send_text(text: str, reply_markup=None):
+        if isinstance(message, CallbackQuery):
+            await message.message.answer(text, reply_markup=reply_markup)
+        else:
+            await message.answer(text, reply_markup=reply_markup)
+
     if cur_state is not None and cur_state != AskQuestion.ask_question:
-        await message.answer("В данный момент я пытаюсь заполнить вашу анкету для нового плана, " 
-                            "вы можете согласиться на потерю данных и начать пользоваться остальными командами без ограничений.",
-                             reply_markup=get_continue_create_kb())
+        await send_text(
+            "В данный момент я пытаюсь заполнить вашу анкету для нового плана, "
+            "вы можете согласиться на потерю данных и начать пользоваться остальными командами без ограничений.",
+            reply_markup=get_continue_create_kb()
+        )
         return None
     elif cur_state == AskQuestion.ask_question:
-        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?", reply_markup=stop_question_kb())
-        return
+        await send_text(
+            "Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?",
+            reply_markup=stop_question_kb()
+        )
+        return None
     
     db_repo = await db.get_repository()
     user = await db_repo.get_user(user_id)
