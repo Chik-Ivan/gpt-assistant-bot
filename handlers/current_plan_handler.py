@@ -51,6 +51,7 @@ async def check_plan(user_id: int, message: Message|CallbackQuery, state: FSMCon
 
 @current_plan_router.callback_query(F.data=="stop_question")
 async def stop_question(call: CallbackQuery, state: FSMContext):
+    await call.answer()
     await state.clear()
     await call.message.answer("Хорошо! Помни, можешь обращаться ко мне в любое время:)")
     db_repo = await db.get_repository()
@@ -150,10 +151,13 @@ async def current_status(message: Message, state: FSMContext):
 
 @current_plan_router.callback_query(F.data=="ask_question")
 async def ask_question(call: CallbackQuery, state: FSMContext):
+    user = await check_plan(call.from_user.id, call, state)
+    await call.answer()
+    if not user:
+        return
     await call.answer()
     await state.set_state(AskQuestion.ask_question)
     db_repo = await db.get_repository()
-    user = await db_repo.get_user(call.from_user.id)
     user_task = await db_repo.get_user_task(call.from_user.id)
     tasks = []
     for week in user.plan.keys():
@@ -222,10 +226,8 @@ async def support(message: Message, state: FSMContext):
 
 @current_plan_router.message(AskQuestion.ask_question)
 async def ask_question_in_dialog(message: Message, state: FSMContext):
-    user = await check_plan(message.from_user.id, message, state)
-    if not user:
-        return
     db_repo = await db.get_repository()
+    user = await db_repo.get_user(message.from_user.id)
     question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text, plan_part=None)
     if status_code == 1:
         await state.clear()
