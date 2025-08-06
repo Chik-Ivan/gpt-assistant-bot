@@ -114,7 +114,7 @@ async def plan_status(message: Message, state: FSMContext):
         text = ("<b>Статус плана:</b>\n\n📊 <b>Прогресс:</b>\n" +
                 "⏹︎" * (user_task.current_step) +
                 "░" * (len(user_task.deadlines) - user_task.current_step) + 
-                f"<b>{int((user_task.current_step) / len(user_task.deadlines) * 100)} %</b>\n"
+                f"  <b>{int((user_task.current_step) / len(user_task.deadlines) * 100)} %</b>\n"
                 f"<b>✅ Этапы {user_task.current_step}/{len(user_task.deadlines)}</b>\n"
                 f"🔥 <b>Баллы: *не сказали от чего расчитываются*</b>")
         await message.answer(text)
