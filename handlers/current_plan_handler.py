@@ -168,7 +168,7 @@ async def ask_question(call: CallbackQuery, state: FSMContext):
             f"{tasks[user_task.current_step//3 + 2]} до {user_task.deadlines[user_task.current_step//3 + 2].strftime('%d.%m.%Y')}\n\n"
             )
     
-    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, plan_part=text)
+    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=None ,plan_part=text)
     await call.message.answer(reply)
     user.question_dialog = question_dialog
     await db_repo.update_user(user)
@@ -177,6 +177,7 @@ async def ask_question(call: CallbackQuery, state: FSMContext):
 @current_plan_router.callback_query(F.data=="mark_completed")
 async def mark_completed(call: CallbackQuery, state: FSMContext):
     user = await check_plan(call.from_user.id, call, state)
+    await call.answer()
     if not user:
         return
     db_repo = await db.get_repository()
@@ -192,19 +193,18 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     adjust_index = block_index + 2
 
     if adjust_index >= len(deadlines):
-        return deadlines
-
+        await call.message.answer("Это была последняя неделя и ты справился ос своим планом! Поздравляю!")
+        return
+    
     base_deadline = deadlines[adjust_index]
     delta = base_deadline - today
 
-    if delta.total_seconds() <= 0:
-        return deadlines
 
-    adjusted = deadlines[:adjust_index] + [
-        d - delta + timedelta(days=1) for d in deadlines[adjust_index:]
+    adjusted = deadlines[:adjust_index + 1] + [
+        d - delta + timedelta(days=1) for d in deadlines[adjust_index + 1:]
     ]
     user_task.deadlines = adjusted
-    user_task.current_step = adjust_index
+    user_task.current_step = adjust_index + 1
     await db_repo.update_user_task(user_task)    
 
 # Этот хендлер должен находиться в отдельном .py файле, но я вношу быстрые правки, 
@@ -226,7 +226,7 @@ async def ask_question_in_dialog(message: Message, state: FSMContext):
     if not user:
         return
     db_repo = await db.get_repository()
-    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text)
+    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text, plan_part=None)
     if status_code == 1:
         await state.clear()
         await message.answer(reply)
