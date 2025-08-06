@@ -37,7 +37,7 @@ class GPT:
             logging.error(f"Ошибка GPT {e}")
             return (None, f"Ошибка {e}", 2)
         
-    def ask_question_gpt(self, question_dialog: Optional[List[Dict]], user_input: Optional[str], plan_part: Optional[str]) -> Tuple:
+    async def ask_question_gpt(self, question_dialog: Optional[List[Dict]], user_input: Optional[str], plan_part: Optional[str]) -> Tuple:
         if plan_part:
             question_dialog = [{"role": "system", "content": self.system_promt + f"\n{plan_part}"}]
             question_dialog.append({"role": "user", "content": "Привет, у меня есть вопросы по предоставленному тобой плану."})

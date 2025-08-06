@@ -19,7 +19,7 @@ def week_tasks_keyboard():
 
 def support_kb():
     kb_list = [
-        [InlineKeyboardButton("Поддержка", url="https://t.me/Abramova_school_support")]
+        [InlineKeyboardButton(text="Поддержка", url="https://t.me/Abramova_school_support")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb_list)
 
