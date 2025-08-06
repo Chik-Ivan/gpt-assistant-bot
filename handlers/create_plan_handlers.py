@@ -111,8 +111,6 @@ async def questions_handler(message: Message, state: FSMContext):
     data = await state.get_data()
     current_q = data.get("current_question", 0)
     logging.info(f"CURRENT_Q: {current_q}")
-    if current_q == 4: # до этого вопроса было задано еще 4
-        await state.set_state(Plan.let_goal_and_plan)
 
     db_repo = await db.get_repository()
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
@@ -133,6 +131,8 @@ async def questions_handler(message: Message, state: FSMContext):
         case 0:
             user.messages = dialog
             await db_repo.update_user(user)
+            if current_q == 4: # до этого вопроса было задано еще 4
+                await state.set_state(Plan.let_goal_and_plan)
             data["current_question"] = current_q + 1
             await state.set_data(data)
             logging.info("Статус код 0 при заполнении анкеты")
