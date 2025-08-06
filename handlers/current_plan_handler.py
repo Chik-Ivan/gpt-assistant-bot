@@ -142,9 +142,7 @@ async def current_status(message: Message, state: FSMContext):
         text = (f"На данный момент вы на {user_task.current_step//3 + 1} неделе плана плана из {len(user_task.deadlines) // 3}!\n"
                 f"Ваши задачи на эту неделю и их дедлайны:\n\n"
                 f"{tasks[user_task.current_step//3]} до {user_task.deadlines[user_task.current_step//3].strftime('%d.%m.%Y')}\n\n"
-                f"Ваши задачи на эту неделю и их дедлайны:\n\n"
                 f"{tasks[user_task.current_step//3 + 1]} до {user_task.deadlines[user_task.current_step//3 + 1].strftime('%d.%m.%Y')}\n\n"
-                f"Ваши задачи на эту неделю и их дедлайны:\n\n"
                 f"{tasks[user_task.current_step//3 + 2]} до {user_task.deadlines[user_task.current_step//3 + 2].strftime('%d.%m.%Y')}\n\n"
                 )
         await message.answer(text, reply_markup=week_tasks_keyboard())
