@@ -67,7 +67,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         
         dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
                                                              message.text)    
-        await message.answer(reply, reply_markup=get_main_keyboard())
+        await message.answer(reply, reply_markup=get_main_keyboard(message.from_user.id))
 
     match status_code:
         case 0:
