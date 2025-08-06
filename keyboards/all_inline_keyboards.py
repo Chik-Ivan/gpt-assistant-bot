@@ -25,6 +25,6 @@ def support_kb():
 
 def stop_question_kb():
     kb_list = [
-        [InlineKeyboardButton("Прекратить обусждение!", callback_data="stop_question")]
+        [InlineKeyboardButton(text="Прекратить обусждение!", callback_data="stop_question")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb_list)

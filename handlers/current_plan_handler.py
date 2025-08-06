@@ -150,12 +150,10 @@ async def current_status(message: Message, state: FSMContext):
 
 @current_plan_router.callback_query(F.data=="ask_question")
 async def ask_question(call: CallbackQuery, state: FSMContext):
-    user = await check_plan(call.from_user.id, call, state)
     await call.answer()
-    if not user:
-        return
     await state.set_state(AskQuestion.ask_question)
     db_repo = await db.get_repository()
+    user = await db_repo.get_user(call.from_user.id)
     user_task = await db_repo.get_user_task(call.from_user.id)
     tasks = []
     for week in user.plan.keys():
