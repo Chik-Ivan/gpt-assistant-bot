@@ -85,9 +85,9 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
             return
         
         text = ["Текущий план выглядит так:\n"]
-        for index_week, week, tasks in enumerate(plan.items()):
+        for index_week, (week, tasks) in enumerate(plan.items()):
             text.append(f"{week}:\n")
-            for index_task, task_name, task_value in enumerate(tasks.items()):
+            for index_task, (task_name, task_value) in enumerate(tasks.items()):
                 text.append(f"{task_name}: {task_value} до {user_task.deadlines[index_week//3 + index_task].strftime('%d.%m.%Y')}\n")
             text.append("\n")
         text.append("Продолжай работать и точно достигнешь всех своих целей!")
