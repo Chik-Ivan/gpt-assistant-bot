@@ -19,7 +19,7 @@ class GPT:
             )
             reply = response.choices[0].message.content
             logging.info(f"reply - {reply}\n\nresponse - {response}")
-            return extract_between(reply, "<json>", "</json>")
+            return reply
 
         except Exception as e:
             logging.error(f"Ошибка GPT {e}")
