@@ -11,7 +11,7 @@ class GPT:
         logging.info(f"Внутри класса GPT: prompt - {prompt}")
 
         try:
-            response = self.openai.chat.completions.create(
+            response =  await self.openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "system", "content": prompt}],
                 temperature=0.7
@@ -22,14 +22,14 @@ class GPT:
 
         except Exception as e:
             logging.error(f"Ошибка GPT {e}")
-            return (None, f"Ошибка {e}", 2)
+            return (e)
         
     async def ask_question_gpt(self, question_dialog: Optional[List[Dict]], user_input: Optional[str], plan_part: Optional[str]) -> Tuple:
         if plan_part:
             question_dialog = [{"role": "system", "content": self.question_about_plan_prompt + f"\n{plan_part}"}]
             question_dialog.append({"role": "user", "content": "Привет, у меня есть вопросы по предоставленному тобой плану."})
             try:
-                response = self.openai.chat.completions.create(
+                response = await self.openai.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=question_dialog,
                     temperature=0.7
@@ -42,7 +42,7 @@ class GPT:
                 return (None, f"Ошибка {e}", 2)
         try:
             question_dialog.append({"role": "user", "content": user_input if user_input else ""})
-            response = self.openai.chat.completions.create(
+            response = await self.openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=question_dialog,
                 temperature=0.7
