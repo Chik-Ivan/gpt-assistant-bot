@@ -4,7 +4,7 @@ from config import ADMINS
 
 def get_main_keyboard(user_id: int):
     kb_list = [
-        [KeyboardButton(text="📋 Создать план"), KeyboardButton(text="❗ Задание на неделю")],
+        [KeyboardButton(text="📋 Создать план"), KeyboardButton(text="❗ Задание этапа")],
         [KeyboardButton(text="🗒️ Текущий план"), KeyboardButton(text="⌛ Статус плана")],
         [KeyboardButton(text="🆘 поддержка"), (KeyboardButton(text="👤 Личный кабинет"))],
     ]

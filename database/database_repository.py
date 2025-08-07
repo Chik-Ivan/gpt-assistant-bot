@@ -18,7 +18,7 @@ class DatabaseRepository:
     async def create_user(self, user: User) -> bool:
         """Добавление нового пользователя"""
         query = """
-        INSERT INTO users_data (id, goal, plan, messages, access, created_at, question_dialog)
+        INSERT INTO users_data (id, goal, stages_plan, messages, access, created_at, question_dialog)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         ON CONFLICT (id) DO NOTHING
         RETURNING id
@@ -29,7 +29,8 @@ class DatabaseRepository:
                 query,
                 user.id,
                 user.goal,
-                json.dumps(user.plan) if user.plan else None,
+                json.dumps(user.stages_plan) if user.stages_plan else None,
+                json.dumps(user.substages_plan) if user.substages_plan else None,
                 json.dumps(user.messages) if user.messages else None,
                 user.access,
                 user.created_at,
@@ -40,7 +41,7 @@ class DatabaseRepository:
     async def create_user_task(self, user_task: UserTask) -> bool:
         "Добавление новой задачи для пользователя"
         query = """
-        INSERT INTO users_tasks (id, current_step, reminder_time, deadlines)
+        INSERT INTO users_tasks (id, current_step, current_deadline, deadlines)
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (id) DO NOTHING
         RETURNING id
@@ -51,7 +52,7 @@ class DatabaseRepository:
                 query,
                 user_task.id,
                 user_task.current_step,
-                user_task.reminder_time,
+                user_task.current_deadline,
                 json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None
             )
             return result is not None
@@ -63,14 +64,16 @@ class DatabaseRepository:
         async with self.pool.acquire() as conn:
             record = await conn.fetchrow(query, user_id)
             if record:
-                plan = json.loads(record['plan']) if record['plan'] else None
+                stages_plan = json.loads(record['stages_plan']) if record['stages_plan'] else None
+                substages_plan = json.loads(record['substages_plan']) if record['substages_plan'] else None
                 messages = json.loads(record['messages']) if record['messages'] else None
                 question_dialog = json.loads(record['question_dialog']) if record['question_dialog'] else None
 
                 return User(
                     id=record['id'],
                     goal=record['goal'],
-                    plan=plan,
+                    stages_plan=stages_plan,
+                    substages_plan=substages_plan,
                     messages=messages,
                     question_dialog=question_dialog,
                     access=record['access'],
@@ -91,7 +94,7 @@ class DatabaseRepository:
                 return UserTask(
                     id=record["id"],
                     current_step=record["current_step"],
-                    reminder_time=record["reminder_time"],
+                    current_deadline=record["current_deadline"],
                     deadlines=deadlines
                 )
         
@@ -101,21 +104,23 @@ class DatabaseRepository:
         UPDATE users_data 
         SET 
             goal = $1,
-            plan = $2,
+            stages_plan = $2,
             messages = $3,
             question_dialog = $4,
-            access = $5
-        WHERE id = $6
+            access = $5,
+            substages_plan = $6
+        WHERE id = $7
         """
         
         async with self.pool.acquire() as conn:
             await conn.execute(
                 query,
                 user.goal,
-                json.dumps(user.plan) if user.plan else None,
+                json.dumps(user.stages_plan) if user.stages_plan else None,
                 json.dumps(user.messages) if user.messages else None,
                 json.dumps(user.question_dialog) if user.question_dialog else None,
                 user.access,
+                json.dumps(user.substages_plan) if user.substages_plan else None,
                 user.id
             )
 
@@ -125,7 +130,7 @@ class DatabaseRepository:
         UPDATE users_tasks
         SET
             current_step = $1,
-            reminder_time = $2,
+            current_deadline = $2,
             deadlines = $3
         WHERE id = $4
         """
@@ -134,7 +139,7 @@ class DatabaseRepository:
             await conn.execute(
                 query,
                 user_task.current_step,
-                user_task.reminder_time,
+                user_task.current_deadline,
                 json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None,
                 user_task.id
             )

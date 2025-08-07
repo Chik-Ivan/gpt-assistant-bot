@@ -7,7 +7,8 @@ import asyncpg
 class User(BaseModel):
     id: int
     goal: Optional[str] = None
-    plan: Optional[Dict] = None
+    stages_plan: Optional[Dict] = None
+    substages_plan: Optional[Dict] = None
     messages: Optional[List[Dict]] = None
     question_dialog: Optional[List[Dict]] = None
     access: bool = False
@@ -22,8 +23,8 @@ class User(BaseModel):
 class UserTask(BaseModel):
     id: int
     current_step: int = 0
-    reminder_time: int = 12
     deadlines: Optional[List[datetime]] = None
+    current_deadline: Optional[datetime] = None
 
     class Config:
         json_encoders = {

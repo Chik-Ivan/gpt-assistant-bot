@@ -85,8 +85,8 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
         user = await check_plan(message.from_user.id, message, state)
         if not user:
             return
-        plan = user.plan
-        if not plan:
+        goal = user.goal
+        if not goal:
             await message.answer("В данный момент у вас нет созданного плана. Воспользуйтесь кнопкой \"📋 Создать новый план\", чтобы создать его!")
             return
         db_repo = await db.get_repository()
@@ -97,13 +97,15 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
             return
         
         text = ["Текущий план выглядит так:\n"]
-        for index_week, (week, tasks) in enumerate(plan.items()):
-            text.append(f"{week}:\n")
-            for index_task, (task_name, task_value) in enumerate(tasks.items()):
-                text.append(f"{task_name}: {task_value} до {user_task.deadlines[index_week//3 + index_task].strftime('%d.%m.%Y')}\n")
-            text.append("\n")
+        for i, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
+                        stage_num = str(i)
+                        text.append(f"{stage_key} - {stage_value}\n")
+                        if stage_num in user.substages_plan:
+                            text.append("Подэтапы этого эпата:\n")
+                            for sub_name, sub_value in user.substages_plan[stage_num].items():
+                                text.append(f"\tПодэтап: {sub_name} - {sub_value}\n")
         text.append("Продолжай работать и точно достигнешь всех своих целей!")
-        text = "".join(text[:-2])
+        text = "".join(text)
         await message.answer(text)
 
 
@@ -132,7 +134,46 @@ async def plan_status(message: Message, state: FSMContext):
         await message.answer(text)
         
 
-@current_plan_router.message(F.text=="❗ Задание на неделю")
+def get_current_stage_info(user_task, user):
+    current_step = user_task.current_step
+    deadline_map = []
+
+    for i, (stage_key, stage_val) in enumerate(user.stages_plan.items(), start=1):
+        stage_deadlines = []
+        substage_key = str(i)
+        if substage_key in user.substages_plan:
+            for sub_key, sub_val in user.substages_plan[substage_key].items():
+                desc, date_str = sub_val.rsplit(" - ", 1)
+                deadline = datetime.strptime(date_str.strip(), "%d.%m.%Y")
+                stage_deadlines.append((desc, deadline))
+        else:
+            desc, date_str = stage_val.rsplit(" - ", 1)
+            deadline = datetime.strptime(date_str.strip(), "%d.%m.%Y")
+            stage_deadlines.append((desc, deadline))
+        
+        deadline_map.append((i, stage_key, stage_deadlines))
+
+    flat_deadlines = []
+    for stage_info in deadline_map:
+        for task in stage_info[2]:
+            flat_deadlines.append((stage_info[0], task))
+
+    current_stage_num = flat_deadlines[current_step][0]
+    total_stage = len(user.stages_plan)
+
+    text = [f"На данный момент вы на {current_stage_num} этапе плана из {total_stage}!\n",
+            f"Ваши задачи на этом этапе и их дедлайны:\n\n"]
+
+    for st_num, st_key, st_tasks in deadline_map:
+        if st_num == current_stage_num:
+            for desc, dl in st_tasks:
+                text.append(f"• {desc} — до {dl.strftime('%d.%m.%Y')}\n")
+            break
+
+    return "".join(text)
+
+
+@current_plan_router.message(F.text=="❗ Задание этапа")
 async def current_status(message: Message, state: FSMContext):
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await check_plan(message.from_user.id, message, state)
@@ -147,16 +188,8 @@ async def current_status(message: Message, state: FSMContext):
             await message.answer("Кажется возникли какие-то неполадки или у вас отсутсвует план.\n"
                                  "Попробуйте создать новый план.")
             return
-        tasks = []
-        for week in user.plan.keys():
-            for type, task in user.plan[week].items():
-                tasks.append(f"{type}: {task}")
-        text = (f"На данный момент вы на {user_task.current_step//3 + 1} неделе плана плана из {len(user_task.deadlines) // 3}!\n"
-                f"Ваши задачи на эту неделю и их дедлайны:\n\n"
-                f"{tasks[user_task.current_step//3]} до {user_task.deadlines[user_task.current_step//3].strftime('%d.%m.%Y')}\n\n"
-                f"{tasks[user_task.current_step//3 + 1]} до {user_task.deadlines[user_task.current_step//3 + 1].strftime('%d.%m.%Y')}\n\n"
-                f"{tasks[user_task.current_step//3 + 2]} до {user_task.deadlines[user_task.current_step//3 + 2].strftime('%d.%m.%Y')}\n\n"
-                )
+        
+        text = get_current_stage_info(user_task, user)
         await message.answer(text, reply_markup=week_tasks_keyboard())
 
 
@@ -174,15 +207,9 @@ async def ask_question(call: CallbackQuery, state: FSMContext):
     for week in user.plan.keys():
         for type, task in user.plan[week].items():
             tasks.append(f"{type}: {task}")
-    text = (f"Задачи на эту неделю и их дедлайны:\n\n"
-            f"{tasks[user_task.current_step//3]} до {user_task.deadlines[user_task.current_step//3].strftime('%d.%m.%Y')}\n\n"
-            f"Ваши задачи на эту неделю и их дедлайны:\n\n"
-            f"{tasks[user_task.current_step//3 + 1]} до {user_task.deadlines[user_task.current_step//3 + 1].strftime('%d.%m.%Y')}\n\n"
-            f"Ваши задачи на эту неделю и их дедлайны:\n\n"
-            f"{tasks[user_task.current_step//3 + 2]} до {user_task.deadlines[user_task.current_step//3 + 2].strftime('%d.%m.%Y')}\n\n"
-            )
+    text = get_current_stage_info(user_task, user)
     
-    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=None ,plan_part=text)
+    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=None, plan_part=text)
     await call.message.answer(reply)
     user.question_dialog = question_dialog
     await db_repo.update_user(user)
@@ -221,18 +248,6 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     user_task.current_step = adjust_index + 1
     await db_repo.update_user_task(user_task)   
     await call.message.answer("Дедлайны передвинуты") 
-
-# Этот хендлер должен находиться в отдельном .py файле, но я вношу быстрые правки, 
-# поэтому если это видит другой программист, то перенеси пж
-@current_plan_router.message(F.text=="🆘 поддержка")
-async def support(message: Message, state: FSMContext):
-    user = await check_plan(message.from_user.id, message, state)
-    if not user:
-            return
-    text = ("Не стоит злоупотреблять этой возможностью, спамить или оскорблять операторов.\n"
-            "Пишите четко и по существу, не разделяя свое сообщение на множество более мелких.\n"
-            "Спасибо за понимание!")
-    await message.answer(text, reply_markup=support_kb()) 
 
 
 @current_plan_router.message(AskQuestion.ask_question)
