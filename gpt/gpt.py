@@ -13,7 +13,7 @@ class GPT:
         try:
             response = self.openai.chat.completions.create(
                 model="gpt-4o",
-                messages=prompt,
+                messages=[{"role": "system", "content": prompt}],
                 temperature=0.7
             )
             reply = response.choices[0].message.content
