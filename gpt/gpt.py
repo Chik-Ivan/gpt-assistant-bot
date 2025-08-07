@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Tuple, Type
 import logging
+from utils.all_utils import extract_between
 
 class GPT:
     def __init__(self, openai, question_about_plan_prompt: str):
@@ -18,7 +19,7 @@ class GPT:
             )
             reply = response.choices[0].message.content
             logging.info(f"reply - {reply}\n\nresponse - {response}")
-            return reply
+            return extract_between(reply, "<json>", "</json>")
 
         except Exception as e:
             logging.error(f"Ошибка GPT {e}")
