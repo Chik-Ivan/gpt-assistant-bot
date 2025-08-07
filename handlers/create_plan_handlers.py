@@ -37,7 +37,7 @@ async def gpt_step(message: Message, state: FSMContext, add_to_prompt: str, next
     prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
     reply = gpt.chat_for_plan(prompt) 
     reply = json.loads(reply)
-    match int(reply["status_code"]):
+    match int(reply["status"]):
         case 0:
             user.messages.append({"role": "user", "content": message.text})
             prompt = create_question_prompt + f"{user.messages}\n\n {add_to_prompt}"
