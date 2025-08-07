@@ -99,9 +99,9 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
         text = ["Текущий план выглядит так:\n"]
         for i, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
                         stage_num = str(i)
-                        text.append(f"{stage_key} - {stage_value}\n")
+                        text.append(f"{stage_key} - {stage_value}\n\n")
                         if stage_num in user.substages_plan:
-                            text.append("<b>Подэтапы этого эпата:</b>\n")
+                            text.append("<b>Подэтапы этого эпата:</b>\n\n")
                             for sub_name, sub_value in user.substages_plan[stage_num].items():
                                 text.append(f"      {sub_name} - {sub_value}\n")
         text.append("Продолжай работать и точно достигнешь всех своих целей!")
