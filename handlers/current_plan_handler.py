@@ -168,7 +168,7 @@ def get_current_stage_info(user_task: UserTask, user: User) -> str:
 
     for stage_num, stage_name, stage_val, stage_tasks in deadline_map:
         if stage_num == current_stage_num:
-            text.append(f"🔹 {stage_name}:\n")
+            text.append(f"🔹 {stage_name}: {stage_val}\n\n<b>Подэтапы:</b>\n")
             substage_key = str(stage_num)
 
             if substage_key in user.substages_plan:
