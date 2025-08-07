@@ -216,6 +216,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                     user.plan = reply["plan"]
                     user.goal = reply["goal"]
                     await db_repo.update_user(user)
+                    await state.clear()
                 else:
                     await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
                     logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
