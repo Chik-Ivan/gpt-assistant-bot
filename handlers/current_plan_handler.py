@@ -220,7 +220,7 @@ async def ask_question(call: CallbackQuery, state: FSMContext):
             tasks.append(f"{type}: {task}")
     text = get_current_stage_info(user_task, user)
     
-    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=None, plan_part=text)
+    question_dialog, reply, status_code = gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=None, plan_part=text)
     await call.message.answer(reply)
     user.question_dialog = question_dialog
     await db_repo.update_user(user)
