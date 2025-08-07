@@ -241,22 +241,20 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     current_step = user_task.current_step
 
     today = datetime.now()
-    block_index = current_step // 3
-    adjust_index = block_index + 2
 
-    if adjust_index >= len(deadlines):
-        await call.message.answer("Это была последняя неделя и ты справился ос своим планом! Поздравляю!")
+    if current_step == len(deadlines) - 1:
+        await call.message.answer("Это был последний этап и ты справился ос своим планом! Поздравляю!")
         return
     
-    base_deadline = deadlines[adjust_index]
+    base_deadline = deadlines[current_step]
     delta = base_deadline - today
 
 
-    adjusted = deadlines[:adjust_index + 1] + [
-        d - delta + timedelta(days=1) for d in deadlines[adjust_index + 1:]
+    adjusted = deadlines[:current_step + 1] + [
+        d - delta + timedelta(days=1) for d in deadlines[current_step + 1:]
     ]
     user_task.deadlines = adjusted
-    user_task.current_step = adjust_index + 1
+    user_task.current_step += 1
     await db_repo.update_user_task(user_task)   
     await call.message.answer("Дедлайны передвинуты") 
 
