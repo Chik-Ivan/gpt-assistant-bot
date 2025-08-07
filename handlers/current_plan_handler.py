@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import StateFilter
 from database.core import db
 from create_bot import bot
-from database.models import User
+from database.models import User, UserTask
 from typing import Optional
 from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb
 from utils.all_utils import extract_number
@@ -101,9 +101,9 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
                         stage_num = str(i)
                         text.append(f"{stage_key} - {stage_value}\n")
                         if stage_num in user.substages_plan:
-                            text.append("Подэтапы этого эпата:\n")
+                            text.append("<b>Подэтапы этого эпата:</b>\n")
                             for sub_name, sub_value in user.substages_plan[stage_num].items():
-                                text.append(f"\tПодэтап: {sub_name} - {sub_value}\n")
+                                text.append(f"      {sub_name} - {sub_value}\n")
         text.append("Продолжай работать и точно достигнешь всех своих целей!")
         text = "".join(text)
         await message.answer(text)
@@ -115,8 +115,8 @@ async def plan_status(message: Message, state: FSMContext):
         user = await check_plan(message.from_user.id, message, state)
         if not user:
             return
-        plan = user.plan
-        if not plan:
+        goal = user.goal
+        if not goal:
             await message.answer("В данный момент у вас нет созданного плана. Воспользуйтесь кнопкой \"📋 Создать новый план\", чтобы создать его!")
             return
         db_repo = await db.get_repository()
@@ -134,40 +134,51 @@ async def plan_status(message: Message, state: FSMContext):
         await message.answer(text)
         
 
-def get_current_stage_info(user_task, user):
+def get_current_stage_info(user_task: UserTask, user: User) -> str:
     current_step = user_task.current_step
-    deadline_map = []
 
+    deadline_map = []
     for i, (stage_key, stage_val) in enumerate(user.stages_plan.items(), start=1):
-        stage_deadlines = []
+        stage_tasks = []
         substage_key = str(i)
         if substage_key in user.substages_plan:
-            for sub_key, sub_val in user.substages_plan[substage_key].items():
-                desc, date_str = sub_val.rsplit(" - ", 1)
+            for sub_desc in user.substages_plan[substage_key].values():
+                desc, date_str = sub_desc.rsplit(" - ", 1)
                 deadline = datetime.strptime(date_str.strip(), "%d.%m.%Y")
-                stage_deadlines.append((desc, deadline))
+                stage_tasks.append((desc, deadline))
         else:
             desc, date_str = stage_val.rsplit(" - ", 1)
             deadline = datetime.strptime(date_str.strip(), "%d.%m.%Y")
-            stage_deadlines.append((desc, deadline))
-        
-        deadline_map.append((i, stage_key, stage_deadlines))
+            stage_tasks.append((desc, deadline))
+        deadline_map.append((i, stage_key, stage_val, stage_tasks))
 
     flat_deadlines = []
-    for stage_info in deadline_map:
-        for task in stage_info[2]:
-            flat_deadlines.append((stage_info[0], task))
+    for stage in deadline_map:
+        stage_num, stage_name, stage_val, tasks = stage
+        for task in tasks:
+            flat_deadlines.append((stage_num, stage_name, stage_val, task))
 
     current_stage_num = flat_deadlines[current_step][0]
     total_stage = len(user.stages_plan)
 
-    text = [f"На данный момент вы на {current_stage_num} этапе плана из {total_stage}!\n",
-            f"Ваши задачи на этом этапе и их дедлайны:\n\n"]
+    text = [
+        f"На данный момент вы на {current_stage_num} этапе плана из {total_stage}!\n",
+        f"Ваши задачи на этом этапе и их дедлайны:\n\n"
+    ]
 
-    for st_num, st_key, st_tasks in deadline_map:
-        if st_num == current_stage_num:
-            for desc, dl in st_tasks:
-                text.append(f"• {desc} — до {dl.strftime('%d.%m.%Y')}\n")
+    for stage_num, stage_name, stage_val, stage_tasks in deadline_map:
+        if stage_num == current_stage_num:
+            text.append(f"🔹 {stage_name}:\n")
+            substage_key = str(stage_num)
+
+            if substage_key in user.substages_plan:
+                for desc, dl in stage_tasks:
+                    text.append(f"• {desc} — до {dl.strftime('%d.%m.%Y')}\n")
+            else:
+                desc, date_str = stage_val.rsplit(" - ", 1)
+                dl = datetime.strptime(date_str.strip(), "%d.%m.%Y")
+                text.append(f"• Подэтапов нет – только основной этап:\n")
+                text.append(f"  {desc} — до {dl.strftime('%d.%m.%Y')}\n")
             break
 
     return "".join(text)

@@ -216,7 +216,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                 reply = json.loads(reply)
                 if reply["goal"] and reply["plan"]:
                     stages, substages = reply["plan"], reply["substage"]
-                    text = ["Хорошо! Спасибо, что ответил на мои вопросы!", "Вот твой план по достижению цели! А с помощью кнопки \"❗ Задание на неделю\", ты можешь увидеть подэтапы планы при их наличии\n"]
+                    text = ["Хорошо! Спасибо, что ответил на мои вопросы!", "Вот твой план по достижению цели! \nА с помощью кнопки \"❗ Задания этапа \", ты можешь увидеть подэтапы плана при их наличии\n"]
                     for stage_name, stage_value in stages.items():
                         text.append(f"{stage_name} - {stage_value}\n")
                     await message.answer('\n'.join(text))
