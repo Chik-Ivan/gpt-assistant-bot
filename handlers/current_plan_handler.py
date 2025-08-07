@@ -134,7 +134,7 @@ async def plan_status(message: Message, state: FSMContext):
         await message.answer(text)
         
 
-def get_current_stage_info(user_task: UserTask, user: User) -> str:
+async def get_current_stage_info(user_task: UserTask, user: User) -> str:
     current_step = user_task.current_step
 
     deadline_map = []
@@ -200,7 +200,7 @@ async def current_status(message: Message, state: FSMContext):
                                  "Попробуйте создать новый план.")
             return
         
-        text = get_current_stage_info(user_task, user)
+        text = await get_current_stage_info(user_task, user)
         await message.answer(text, reply_markup=week_tasks_keyboard())
 
 
@@ -214,11 +214,8 @@ async def ask_question(call: CallbackQuery, state: FSMContext):
     await state.set_state(AskQuestion.ask_question)
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
-    tasks = []
-    for week in user.plan.keys():
-        for type, task in user.plan[week].items():
-            tasks.append(f"{type}: {task}")
-    text = get_current_stage_info(user_task, user)
+    
+    text = await get_current_stage_info(user_task, user)
     
     question_dialog, reply, status_code = gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=None, plan_part=text)
     await call.message.answer(reply)
