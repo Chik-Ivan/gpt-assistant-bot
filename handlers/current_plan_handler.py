@@ -263,7 +263,7 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
 async def ask_question_in_dialog(message: Message, state: FSMContext):
     db_repo = await db.get_repository()
     user = await db_repo.get_user(message.from_user.id)
-    question_dialog, reply, status_code = await gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text, plan_part=None)
+    question_dialog, reply, status_code = gpt.ask_question_gpt(question_dialog=user.question_dialog, user_input=message.text, plan_part=None)
     if status_code == 1:
         await state.clear()
         await message.answer(reply)
