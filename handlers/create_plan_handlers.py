@@ -225,7 +225,12 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                     user.substages_plan = substages
                     user.goal = reply["goal"]
                     await db_repo.update_user(user)
-                    user_task = await db_repo.get_user_task(user.id)
+                    user_task = UserTask(
+                        id=user.id,
+                        current_step=0,
+                        deadlines=None,
+                        current_deadline=None
+                    )
                     deadlines = []
                     for i, (stage_key, stage_value) in enumerate(stages.items(), start=1):
                         stage_num = str(i)
