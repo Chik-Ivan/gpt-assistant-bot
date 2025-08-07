@@ -7,29 +7,29 @@ class GPT:
         self.question_about_plan_prompt = question_about_plan_prompt
 
 
-    async def chat_for_plan(self, prompt: str) -> str:
+    def chat_for_plan(self, prompt: str) -> str:
         logging.info(f"Внутри класса GPT: prompt - {prompt}")
 
         try:
-            response =  await self.openai.chat.completions.create(
+            response = self.openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "system", "content": prompt}],
                 temperature=0.7
             )
             reply = response.choices[0].message.content
-            
+            logging.info(f"reply - {reply}\n\nresponse - {response}")
             return reply
 
         except Exception as e:
             logging.error(f"Ошибка GPT {e}")
             return (e)
         
-    async def ask_question_gpt(self, question_dialog: Optional[List[Dict]], user_input: Optional[str], plan_part: Optional[str]) -> Tuple:
+    def ask_question_gpt(self, question_dialog: Optional[List[Dict]], user_input: Optional[str], plan_part: Optional[str]) -> Tuple:
         if plan_part:
             question_dialog = [{"role": "system", "content": self.question_about_plan_prompt + f"\n{plan_part}"}]
             question_dialog.append({"role": "user", "content": "Привет, у меня есть вопросы по предоставленному тобой плану."})
             try:
-                response = await self.openai.chat.completions.create(
+                response = self.openai.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=question_dialog,
                     temperature=0.7
@@ -42,7 +42,7 @@ class GPT:
                 return (None, f"Ошибка {e}", 2)
         try:
             question_dialog.append({"role": "user", "content": user_input if user_input else ""})
-            response = await self.openai.chat.completions.create(
+            response = self.openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=question_dialog,
                 temperature=0.7

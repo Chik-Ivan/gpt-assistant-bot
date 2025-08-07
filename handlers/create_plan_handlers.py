@@ -35,13 +35,13 @@ async def gpt_step(message: Message, state: FSMContext, add_to_prompt: str, next
     db_repo = await db.get_repository()
     user = await db_repo.get_user(message.from_user.id)
     prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
-    reply = await gpt.chat_for_plan(prompt) 
+    reply = gpt.chat_for_plan(prompt) 
     reply = json.loads(reply)
     match int(reply["status_code"]):
         case 0:
             user.messages.append({"role": "user", "content": message.text})
             prompt = create_question_prompt + f"{user.messages}\n\n {add_to_prompt}"
-            reply = await gpt.chat_for_plan(prompt)
+            reply = gpt.chat_for_plan(prompt)
             reply = json.loads(reply)
             if reply["question_text"]:
                 await message.answer(reply["question_text"])
@@ -110,7 +110,7 @@ async def start_create_plan(message: Message, state: FSMContext):
             return
     
         
-        reply = await gpt.chat_for_plan(hello_prompt)
+        reply = gpt.chat_for_plan(hello_prompt)
         reply = json.loads(reply)
         if reply["hello_message"]:
             await message.answer(reply["hello_message"], reply_markup=get_main_keyboard(message.from_user.id))
