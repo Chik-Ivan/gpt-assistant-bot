@@ -8,26 +8,64 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.chat_action import ChatActionSender
-from keyboards.all_inline_keyboards import get_continue_create_kb
+from keyboards.all_inline_keyboards import get_continue_create_kb, stop_question_kb
 from keyboards.all_text_keyboards import get_main_keyboard
 from database.core import db
 from database.models import UserTask
-from gpt import gpt
+from gpt import gpt, hello_prompt, create_question_prompt, check_answer_prompt, create_plan_prompt
 from utils.all_utils import extract_between, extract_days, parse_plan
 from create_bot import bot
 from handlers.current_plan_handler import AskQuestion
 
 
 class Plan(StatesGroup):
-    questions = State()
+    confirmation_of_start = State()
+    find_level = State()
+    find_goal = State()
+    find_fear = State()
+    find_time_in_week = State()
+    find_time_for_target = State()
     let_goal_and_plan = State()
 
 
 create_plan_router = Router()
 
 
-@create_plan_router.message(F.text == "📋 Создать план")
-async def start_create_plan(message: Message, state: FSMContext):
+async def gpt_step(message: Message, state: FSMContext, add_to_prompt: str, next_state: State):
+    db_repo = await db.get_repository()
+    user = await db_repo.get_user(message.from_user.id)
+    prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
+    reply = await gpt.chat_for_plan(prompt) 
+    reply = json.loads(reply)
+    match int(reply["status_code"]):
+        case 0:
+            user.messages.append({"role": "user", "content": message.text})
+            prompt = create_question_prompt + f"{user.messages}\n\n {add_to_prompt}"
+            reply = await gpt.chat_for_plan(prompt)
+            reply = json.loads(reply)
+            if reply["question_text"]:
+                await message.answer(reply["question_text"])
+                await state.set_state(next_state)
+                user.messages.append({"role": "assistant", "content": reply["question_text"]})
+                await db_repo.update_user(user)
+            else:
+                await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+        case 1:
+            if reply["reply"]:
+                await message.answer(reply["reply"])
+            else:
+                await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+        case 2:
+            if reply["reply"]:
+                await message.answer(reply["reply"], reply_markup=stop_question_kb())
+            else:
+                await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+
+
+async def check_state(message: Message, state: FSMContext):
     cur_state = await state.get_state()
 
     logging.info(f"CUR_STATE: {cur_state}")
@@ -38,9 +76,16 @@ async def start_create_plan(message: Message, state: FSMContext):
                              reply_markup=get_continue_create_kb())
         return None
     elif cur_state == AskQuestion.ask_question:
-        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?")
-        return
+        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?", reply_markup=stop_question_kb())
+        return None
+    return True
 
+
+@create_plan_router.message(F.text == "📋 Создать план")
+async def start_create_plan(message: Message, state: FSMContext):
+    check = await check_state(message, state)
+    if not check:
+        return
     db_repo = await db.get_repository()
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await db_repo.get_user(message.from_user.id)
@@ -65,26 +110,17 @@ async def start_create_plan(message: Message, state: FSMContext):
             return
     
         
-        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
-                                                             message.text)    
-        await message.answer(reply, reply_markup=get_main_keyboard(message.from_user.id))
+        reply = await gpt.chat_for_plan(hello_prompt)
+        reply = json.loads(reply)
+        if reply["hello_message"]:
+            await message.answer(reply["hello_message"], reply_markup=get_main_keyboard(message.from_user.id))
+            await state.set_state(Plan.confirmation_of_start)
+            user.messages.append({"role": "assistant", "content": reply["hello_message"]})
+            await db_repo.update_user(user)
+            return
+        logging.info(f"Ответ при приветственном сообщении:\n\n {reply}")
+        await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=get_main_keyboard())
 
-    match status_code:
-        case 0:
-            await state.set_state(Plan.questions)
-            user.messages = dialog
-            await db_repo.update_user(user)
-            logging.info("Успешный старт опроса для заполнения анкеты")
-        case 1:
-            logging.info("Статус код 1 при старте заполнения анкеты")
-            pass
-        case 2:
-            await state.clear()
-            user.messages = None
-            logging.info("Статус код 2 при старте заполнения анкеты")
-            await message.answer("Приношу извинения за неудачу в создании плана.\n"
-                                 "Давай попробуем еще раз, нажми на кнопку для создания плана.")
-            await db_repo.update_user(user)
 
 
 @create_plan_router.callback_query(F.data == "delete_data")
@@ -108,6 +144,37 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         await call.message.answer(f"Произошла ошибка: {e}")
+        logging.error(f"Ошибка: {e}, при удалении данных")
+
+
+@create_plan_router.message(Plan.confirmation_of_start)
+async def confirmation_of_start(message: Message, state: FSMContext):
+    logging.info("Start confirmation_of_start")
+    try:
+        add_text = "тебе нужно придумать вопрос об уровне навыков пользователя (кто он? может быть новичок или любитель)"
+        await gpt_step(message, state, add_text, Plan.find_level)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в confirmation_of_start")
+
+
+@create_plan_router.message(Plan.find_level)
+async def find_level(message: Message, state: FSMContext):
+    logging.info("Start find_level")
+    try:
+        add_text = "тебе нужно придумать вопрос о цели пользователя, о том, чего он хочет достичь (это может быть определенный уровень дохода или мастерства)"
+        await gpt_step(message, state, add_text, Plan.find_goal)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в find_level")
+
+
+@create_plan_router.message(Plan.find_goal)
+async def find_goal(message: Message, state: FSMContext):
+    logging.info("Start find_goal")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя о его страхах или возможных препятствиях при достижении его цели"
+        await gpt_step(message, state, add_text, Plan.find_fear)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в find_goal")
 
 
 @create_plan_router.message(Plan.questions)
