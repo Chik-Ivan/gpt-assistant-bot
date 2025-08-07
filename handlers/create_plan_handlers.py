@@ -24,8 +24,7 @@ class Plan(StatesGroup):
     find_goal = State()
     find_fear = State()
     find_time_in_week = State()
-    find_time_for_target = State()
-    let_goal_and_plan = State()
+    find_time_for_goal = State()
 
 
 create_plan_router = Router()
@@ -175,6 +174,65 @@ async def find_goal(message: Message, state: FSMContext):
         await gpt_step(message, state, add_text, Plan.find_fear)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_goal")
+
+
+@create_plan_router.message(Plan.find_fear)
+async def find_fear(message: Message, state: FSMContext):
+    logging.info("start find_fear")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя сколько времени в неделю он готов уделять для достижения своей цели (в часах)"
+        await gpt_step(message, state, add_text, Plan.find_time_in_week)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в find_fear")
+
+
+@create_plan_router.message(Plan.find_time_in_week)
+async def find_time_in_week(message: Message, state: FSMContext):
+    logging.info("start find_time_in_week")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать за сколько времени пользователь хочет достичь своей цели (может быть несколько недель или месяцев)"
+        await gpt_step(message, state, add_text, Plan.find_time_for_goal)
+    except Exception as e:
+        logging.error(f"Ошибка {e}, в find_time_in_week")
+
+    
+@create_plan_router.message(Plan.find_time_for_goal)
+async def find_time_for_goal(message: Message, state: FSMContext):
+    logging.info("start find_time_for_goal")
+    try:
+        db_repo = await db.get_repository()
+        user = await db_repo.get_user(message.from_user.id)
+        prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
+        reply = gpt.chat_for_plan(prompt) 
+        reply = json.loads(reply)
+        match int(reply["status"]):
+            case 0:
+                user.messages.append({"role": "user", "content": message.text})
+                prompt = create_plan_prompt + f"{user.messages}\n\n Сегодняшняя дата {datetime.now}"
+                reply = gpt.chat_for_plan(prompt)
+                reply = json.loads(reply)
+                if reply["goal"] and reply["plan"]:
+                    await message.answer(reply["plan"])
+                    user.plan = reply["plan"]
+                    user.goal = reply["goal"]
+                    await db_repo.update_user(user)
+                else:
+                    await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                    logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+            case 1:
+                if reply["reply"]:
+                    await message.answer(reply["reply"])
+                else:
+                    await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                    logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+            case 2:
+                if reply["reply"]:
+                    await message.answer(reply["reply"], reply_markup=stop_question_kb())
+                else:
+                    await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                    logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+    except Exception as e:
+        logging.error(f"Ошибка {e}, в find_time_for_goal")
 
 
 # @create_plan_router.message(Plan.questions)
