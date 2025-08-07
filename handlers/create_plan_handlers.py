@@ -177,103 +177,103 @@ async def find_goal(message: Message, state: FSMContext):
         logging.error(f"Ошибка: {e}, в find_goal")
 
 
-@create_plan_router.message(Plan.questions)
-async def questions_handler(message: Message, state: FSMContext):
-    data = await state.get_data()
-    current_q = data.get("current_question", 0)
-    logging.info(f"CURRENT_Q: {current_q}")
+# @create_plan_router.message(Plan.questions)
+# async def questions_handler(message: Message, state: FSMContext):
+#     data = await state.get_data()
+#     current_q = data.get("current_question", 0)
+#     logging.info(f"CURRENT_Q: {current_q}")
 
-    db_repo = await db.get_repository()
-    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
-        user = await db_repo.get_user(message.from_user.id)
+#     db_repo = await db.get_repository()
+#     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
+#         user = await db_repo.get_user(message.from_user.id)
 
-        if user is None:
-            logging.error(f"Не найден пользователь при попытке заполнении анкеты."
-                        f"Вопрос номер : {current_q}; id пользователя : {message.from_user.id}")
-            await message.answer("Ошибка! Обратитесь к администратору.")
-            return
+#         if user is None:
+#             logging.error(f"Не найден пользователь при попытке заполнении анкеты."
+#                         f"Вопрос номер : {current_q}; id пользователя : {message.from_user.id}")
+#             await message.answer("Ошибка! Обратитесь к администратору.")
+#             return
 
-        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
-                                                             message.text)    
+#         dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
+#                                                              message.text)    
 
-        await message.answer(reply)
+#         await message.answer(reply)
 
-    match status_code:
-        case 0:
-            user.messages = dialog
-            await db_repo.update_user(user)
-            if current_q == 4: # до этого вопроса было задано еще 4
-                await state.set_state(Plan.let_goal_and_plan)
-            data["current_question"] = current_q + 1
-            await state.set_data(data)
-            logging.info("Статус код 0 при заполнении анкеты")
-        case 1:
-            logging.info("Статус код 1 при заполнении анкеты")
-            pass
-        case 2:
-            await state.clear()
-            user.messages = None
-            logging.info("Статус код 2 при заполнении анкеты")
-            await message.answer("Приношу извинения за неудачу в создании плана.\n"
-                                 "Давай попробуем еще раз, нажми на кнопку для создания плана.")
-            await db_repo.update_user(user)
+#     match status_code:
+#         case 0:
+#             user.messages = dialog
+#             await db_repo.update_user(user)
+#             if current_q == 4: # до этого вопроса было задано еще 4
+#                 await state.set_state(Plan.let_goal_and_plan)
+#             data["current_question"] = current_q + 1
+#             await state.set_data(data)
+#             logging.info("Статус код 0 при заполнении анкеты")
+#         case 1:
+#             logging.info("Статус код 1 при заполнении анкеты")
+#             pass
+#         case 2:
+#             await state.clear()
+#             user.messages = None
+#             logging.info("Статус код 2 при заполнении анкеты")
+#             await message.answer("Приношу извинения за неудачу в создании плана.\n"
+#                                  "Давай попробуем еще раз, нажми на кнопку для создания плана.")
+#             await db_repo.update_user(user)
 
 
-@create_plan_router.message(Plan.let_goal_and_plan)
-async def let_goal_and_plan(message: Message, state: FSMContext):
-    db_repo = await db.get_repository()
-    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
-        user = await db_repo.get_user(message.from_user.id)
+# @create_plan_router.message(Plan.let_goal_and_plan)
+# async def let_goal_and_plan(message: Message, state: FSMContext):
+#     db_repo = await db.get_repository()
+#     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
+#         user = await db_repo.get_user(message.from_user.id)
 
-        if user is None:
-            logging.error(f"Не найден пользователь при попытке получения плана."
-                        f"id пользователя : {message.from_user.id}")
-            await message.answer("Ошибка! Обратитесь к администратору.")
-            return
+#         if user is None:
+#             logging.error(f"Не найден пользователь при попытке получения плана."
+#                         f"id пользователя : {message.from_user.id}")
+#             await message.answer("Ошибка! Обратитесь к администратору.")
+#             return
 
-        dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
-                                                             message.text)    
-        json_text = extract_between(reply, "<json>", "</json>")
-        if json_text:
-            reply = re.sub(r"<json>.*?</json>", "", reply, flags=re.DOTALL).strip()
-            json_text = json.loads(json_text)
-        await message.answer(reply)
-    match status_code:
-        case 0:
-            if json_text:
-                user.goal = json_text.get("goal")
-                user.plan = json_text.get("plan")
-            else:
-                user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "Итак, твоя цель", "Вот твой план"))
-                user.plan = parse_plan(extract_between(reply, "Вот твой план:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
-            user.messages = dialog
-            await db_repo.update_user(user)
-            user_task = await db_repo.get_user_task(message.from_user.id)
-            if user_task:
-                user_task.current_step = 0
-                user_task.deadlines = get_deadlines(user.plan)
-                await db_repo.update_user_task(user_task)
-            else:
+#         dialog, reply, status_code = await gpt.chat_for_plan(user.messages, 
+#                                                              message.text)    
+#         json_text = extract_between(reply, "<json>", "</json>")
+#         if json_text:
+#             reply = re.sub(r"<json>.*?</json>", "", reply, flags=re.DOTALL).strip()
+#             json_text = json.loads(json_text)
+#         await message.answer(reply)
+#     match status_code:
+#         case 0:
+#             if json_text:
+#                 user.goal = json_text.get("goal")
+#                 user.plan = json_text.get("plan")
+#             else:
+#                 user.goal = re.sub(r'^[\s:\-–—]+', '', extract_between(reply, "Итак, твоя цель", "Вот твой план"))
+#                 user.plan = parse_plan(extract_between(reply, "Вот твой план:", "Я буду присылать тебе каждую неделю план. Не сливайся!"))
+#             user.messages = dialog
+#             await db_repo.update_user(user)
+#             user_task = await db_repo.get_user_task(message.from_user.id)
+#             if user_task:
+#                 user_task.current_step = 0
+#                 user_task.deadlines = get_deadlines(user.plan)
+#                 await db_repo.update_user_task(user_task)
+#             else:
                 
-                result = await db_repo.create_user_task(UserTask(id=message.from_user.id))
-                if result:
-                    logging.info(f"Успешно добавлена задача для пользователя: {message.from_user.id}")
-                else:
-                    logging.error(f"Проблема создания новой задачи для пользователя: {message.from_user.id}."
-                                  "Скорее всего задача уже существует и была попытка создания новой, вместо обновления старой")
+#                 result = await db_repo.create_user_task(UserTask(id=message.from_user.id))
+#                 if result:
+#                     logging.info(f"Успешно добавлена задача для пользователя: {message.from_user.id}")
+#                 else:
+#                     logging.error(f"Проблема создания новой задачи для пользователя: {message.from_user.id}."
+#                                   "Скорее всего задача уже существует и была попытка создания новой, вместо обновления старой")
 
-            await state.clear()
-            logging.info("Бот вернул план пользователю")
+#             await state.clear()
+#             logging.info("Бот вернул план пользователю")
 
-            logging.info("Статус код 0 при завершении заполнения анкеты")
-        case 1:
-            logging.info("Статус код 1 при завершении заполнения анкеты")
-            pass
-        case 2:
-            await state.clear()
-            user.messages = None
-            logging.info("Статус код 2 при завершении заполнения анкеты")
-            await db_repo.update_user(user)
+#             logging.info("Статус код 0 при завершении заполнения анкеты")
+#         case 1:
+#             logging.info("Статус код 1 при завершении заполнения анкеты")
+#             pass
+#         case 2:
+#             await state.clear()
+#             user.messages = None
+#             logging.info("Статус код 2 при завершении заполнения анкеты")
+#             await db_repo.update_user(user)
 
 
 def get_deadlines(plan: Optional[Dict[str, Dict]]) -> List[datetime]:
