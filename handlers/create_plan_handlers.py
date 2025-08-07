@@ -132,7 +132,8 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         db_repo = await db.get_repository()
         user = await db_repo.get_user(call.from_user.id)
         user.messages = None
-        user.plan = None
+        user.stages_plan = None
+        user.substages_plan = None
         user.goal = None
         await db_repo.update_user(user)
         user_task = await db_repo.get_user_task(call.from_user.id)
