@@ -18,8 +18,8 @@ class DatabaseRepository:
     async def create_user(self, user: User) -> bool:
         """Добавление нового пользователя"""
         query = """
-        INSERT INTO users_data (id, goal, stages_plan, messages, access, created_at, question_dialog)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO users_data (id, goal, stages_plan, substages_plan, messages, access, created_at, question_dialog)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (id) DO NOTHING
         RETURNING id
         """
