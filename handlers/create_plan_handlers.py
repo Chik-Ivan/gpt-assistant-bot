@@ -208,11 +208,11 @@ async def find_time_for_goal(message: Message, state: FSMContext):
         match int(reply["status"]):
             case 0:
                 user.messages.append({"role": "user", "content": message.text})
-                prompt = create_plan_prompt + f"{user.messages}\n\n Сегодняшняя дата {datetime.now}"
+                prompt = create_plan_prompt + f"{user.messages}\n\n Сегодняшняя дата {datetime.now().strftime("%d.%m.%Y")}"
                 reply = gpt.chat_for_plan(prompt)
                 reply = json.loads(reply)
                 if reply["goal"] and reply["plan"]:
-                    await message.answer(reply["plan"])
+                    await message.answer(str(reply["plan"]))
                     user.plan = reply["plan"]
                     user.goal = reply["goal"]
                     await db_repo.update_user(user)
