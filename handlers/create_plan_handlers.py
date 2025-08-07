@@ -115,7 +115,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         if reply["hello_message"]:
             await message.answer(reply["hello_message"], reply_markup=get_main_keyboard(message.from_user.id))
             await state.set_state(Plan.confirmation_of_start)
-            user.messages.append({"role": "assistant", "content": reply["hello_message"]})
+            user.messages.append = [{"role": "assistant", "content": reply["hello_message"]}]
             await db_repo.update_user(user)
             return
         logging.info(f"Ответ при приветственном сообщении:\n\n {reply}")
