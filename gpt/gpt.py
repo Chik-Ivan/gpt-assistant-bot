@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Tuple, Type
 import logging
+import re
 from utils.all_utils import extract_between
 
 class GPT:
@@ -19,11 +20,29 @@ class GPT:
             )
             reply = response.choices[0].message.content
             logging.info(f"reply - {reply}\n\nresponse - {response}")
-            return reply
+            return self._extract_clean_json(reply)
 
         except Exception as e:
             logging.error(f"Ошибка GPT {e}")
             return (e)
+        
+    def _extract_clean_json(self, text: str) -> str:
+        brace_stack = []
+        start_index = None
+
+        for i, char in enumerate(text):
+            if char == '{':
+                if start_index is None:
+                    start_index = i
+                brace_stack.append('{')
+            elif char == '}':
+                if brace_stack:
+                    brace_stack.pop()
+                    if not brace_stack:
+                        json = text[start_index:i + 1]
+                        return json
+
+        raise ValueError("Не удалось извлечь валидный JSON из текста.")
         
     def ask_question_gpt(self, question_dialog: Optional[List[Dict]], user_input: Optional[str], plan_part: Optional[str]) -> Tuple:
         if plan_part:
