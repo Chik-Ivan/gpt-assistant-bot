@@ -225,12 +225,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                     user.substages_plan = substages
                     user.goal = reply["goal"]
                     await db_repo.update_user(user)
-                    user_task = UserTask(
-                        id=user.id,
-                        current_step=0,
-                        deadlines=None,
-                        current_deadline=None
-                    )
+                    
                     deadlines = []
                     for i, (stage_key, stage_value) in enumerate(stages.items(), start=1):
                         stage_num = str(i)
@@ -241,9 +236,19 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                         else:
                             date_str = stage_value.split(" - ")[-1].strip()
                             deadlines.append(datetime.strptime(date_str, "%d.%m.%Y"))
-                    user_task.deadlines = deadlines
-                    user_task.current_deadline = deadlines[0] if deadlines else None
-                    await db_repo.update_user_task(user_task)
+                    user_task = await db_repo.get_user_task(user.id)
+                    if user_task:
+                        user_task.deadlines = deadlines
+                        user_task.current_deadline = deadlines[0] if deadlines else None
+                        await db_repo.update_user_task(user_task)
+                    else:
+                        user_task = UserTask(
+                            id=user.id,
+                            current_step=0,
+                            deadlines=deadlines,
+                            current_deadline=deadlines[0]
+                        )
+                        await db_repo.create_user_task(user_task)
 
                 else:
                     await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
