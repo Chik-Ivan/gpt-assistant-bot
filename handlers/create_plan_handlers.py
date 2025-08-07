@@ -30,10 +30,10 @@ class Plan(StatesGroup):
 create_plan_router = Router()
 
 
-async def gpt_step(message: Message, state: FSMContext, add_to_prompt: str, next_state: State):
+async def gpt_step(message: Message, state: FSMContext, add_to_prompt: str, next_state: State, add_to_answer_check: str = ""):
     db_repo = await db.get_repository()
     user = await db_repo.get_user(message.from_user.id)
-    prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
+    prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\" \n\n{add_to_answer_check}"
     reply = gpt.chat_for_plan(prompt) 
     reply = json.loads(reply)
     match int(reply["status"]):
@@ -170,8 +170,9 @@ async def find_level(message: Message, state: FSMContext):
 async def find_goal(message: Message, state: FSMContext):
     logging.info("Start find_goal")
     try:
+        add_text_to_answer_check = "Цель не обязательно должна быть связана с финансами, это может быть и что-то мелкое, главное, чтобы было связано с кондитерством"
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя о его страхах или возможных препятствиях при достижении его цели"
-        await gpt_step(message, state, add_text, Plan.find_fear)
+        await gpt_step(message, state, add_text, Plan.find_fear, add_text_to_answer_check)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_goal")
 
