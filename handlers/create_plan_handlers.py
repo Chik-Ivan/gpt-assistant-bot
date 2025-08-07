@@ -181,7 +181,7 @@ async def find_goal(message: Message, state: FSMContext):
 async def find_fear(message: Message, state: FSMContext):
     logging.info("start find_fear")
     try:
-        add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя сколько времени в неделю он готов уделять для достижения своей цели (в часах)"
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя сколько времени в неделю или в день он готов уделять для достижения своей цели (в часах)"
         await gpt_step(message, state, add_text, Plan.find_time_in_week)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_fear")
@@ -191,6 +191,7 @@ async def find_fear(message: Message, state: FSMContext):
 async def find_time_in_week(message: Message, state: FSMContext):
     logging.info("start find_time_in_week")
     try:
+        add_text_to_answer_check = "Если пользователь указал количество часов в сутки, то принимай этот ответ"
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать за сколько времени пользователь хочет достичь своей цели (может быть несколько дней, недель или месяцев)"
         await gpt_step(message, state, add_text, Plan.find_time_for_goal)
     except Exception as e:
