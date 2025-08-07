@@ -12,7 +12,7 @@ def get_continue_create_kb():
 def week_tasks_keyboard():
     kb_list = [
         [InlineKeyboardButton(text="Задать вопрос", callback_data="ask_question")],
-        [InlineKeyboardButton(text="Отметить неделю выполненной", callback_data="mark_completed")]
+        [InlineKeyboardButton(text="Отметить подэтап выполненным", callback_data="mark_completed")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb_list)
 
