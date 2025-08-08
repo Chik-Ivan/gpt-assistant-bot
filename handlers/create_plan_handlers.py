@@ -204,6 +204,7 @@ async def find_time_in_week(message: Message, state: FSMContext):
 async def find_time_for_goal(message: Message, state: FSMContext):
     logging.info("start find_time_for_goal")
     try:
+        
         db_repo = await db.get_repository()
         user = await db_repo.get_user(message.from_user.id)
         prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
@@ -211,6 +212,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
         reply = json.loads(reply)
         match int(reply["status"]):
             case 0:
+                await message.answer("Подожди немного, я составляю для тебя персональный план..")
                 user.messages.append({"role": "user", "content": message.text})
                 prompt = create_plan_prompt + f"{user.messages}\n\n Сегодняшняя дата {datetime.now().strftime('%d.%m.%Y')}"
                 reply = gpt.chat_for_plan(prompt)
