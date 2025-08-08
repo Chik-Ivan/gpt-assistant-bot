@@ -161,6 +161,7 @@ async def confirmation_of_start(message: Message, state: FSMContext):
 async def find_level(message: Message, state: FSMContext):
     logging.info("Start find_level")
     try:
+        add_text_for_check_answer = "в ответе не обязательно должно быть \"Любитель, профи, новичок\" там может быть и что-то другое, например учусь или прохожу курсы для начинающим, или умею делать простые торты"
         add_text = "тебе нужно придумать вопрос о цели пользователя, о том, чего он хочет достичь (это может быть определенный уровень дохода или мастерства, а может быть что-нибудь мелкое. Главное чтобы была цель связанная с кондитерством)"
         await gpt_step(message, state, add_text, Plan.find_goal)
     except Exception as e:

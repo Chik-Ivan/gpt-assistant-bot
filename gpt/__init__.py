@@ -193,6 +193,7 @@ question_about_plan_prompt = ("""
     ЧАСТЬ ПЛАНА ПО КОТОРОЙ ЕСТЬ ВОПРОСЫ
     ====================    
     """
+    # сюда добавляется часть плана по которой есть вопросы
 )
 
 gpt = GPT(client, question_about_plan_prompt)
