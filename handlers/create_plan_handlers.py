@@ -220,9 +220,6 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                 if reply["goal"] and reply["plan"]:
                     stages, substages = reply["plan"], reply["substage"]
                     text = ["Хорошо! Спасибо, что ответил на мои вопросы!", "Вот твой план по достижению цели! \nА с помощью кнопки \"❗ Задания этапа \", ты можешь увидеть подэтапы плана при их наличии\n"]
-                    for stage_name, stage_value in stages.items():
-                        text.append(f"{stage_name} - {stage_value}\n")
-                    await message.answer('\n'.join(text))
                     await state.clear()
                     user.stages_plan = stages
                     user.substages_plan = substages
@@ -252,7 +249,9 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                             current_deadline=deadlines[0]
                         )
                         await db_repo.create_user_task(user_task)
-
+                    for stage_name, stage_value in stages.items():
+                        text.append(f"{stage_name} - {stage_value}\n")
+                    await message.answer('\n'.join(text))
                 else:
                     await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
                     logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
