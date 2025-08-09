@@ -34,7 +34,8 @@ async def cmd_start(message: Message, state: FSMContext):
         stages_plan=None,
         substages_plan = None,
         messages=None,
-        access=False
+        access=False,
+        is_admin=False
     )
 
     try:

@@ -3,19 +3,16 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command, CommandObject
-from filters.is_admin import IsAdmin
-from config import ADMINS
 from handlers.current_plan_handler import check_plan
 from database.core import db
 
 
 admin_router = Router()
 
-
-@admin_router.message(F.text == "⚙️ Админ панель", IsAdmin(ADMINS))
+@admin_router.message(F.text == "⚙️ Админ панель")
 async def get_admin_panel(message: Message, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
-    if not user:
+    if not user or not user.is_admin:
         return
     await message.answer("Команды для админа:\n\n"
                    "/access_true + *id пользователя* выдает юзеру доступ к боту\n\n"
@@ -24,10 +21,10 @@ async def get_admin_panel(message: Message, state: FSMContext):
                    "/del_admin + *id пользователя* удаляет админа\n\n"
                    "/check_appeals позволяет проверять обращения пользователя в поддержку (В разработке!)")
 
-@admin_router.message(Command("access_true"), IsAdmin(ADMINS))
+@admin_router.message(Command("access_true"))
 async def access_true(message: Message, command: CommandObject, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
-    if not user:
+    if not user or not user.is_admin:
         return
     command_args: str = command.args
     db_repo = await db.get_repository()
@@ -44,10 +41,10 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
         await message.answer(f"ошибка\n\n{e}")
 
 
-@admin_router.message(Command("access_false"), IsAdmin(ADMINS))
+@admin_router.message(Command("access_false"))
 async def access_true(message: Message, command: CommandObject, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
-    if not user:
+    if not user or not user.is_admin:
         return
     command_args: str = command.args
     db_repo = await db.get_repository()
@@ -64,27 +61,40 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
         await message.answer(f"ошибка\n\n{e}")
 
 
-@admin_router.message(Command("add_admin"), IsAdmin(ADMINS))
+@admin_router.message(Command("add_admin"))
 async def add_admin(message: Message, command: CommandObject, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
-    if not user:
+    if not user or not user.is_admin:
         return
     command_args: str = command.args
     if not command.args or not command.args.isdigit():
             await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/add_admin 123456789")
             return
-    ADMINS.append(command_args)
+    db_repo = await db.get_repository()
+    new_admin = await db_repo.get_user(int(command_args))
+    if not new_admin:
+        await message.answer("Кажется, пользователя с таким id не существует.")
+        return
+    new_admin.is_admin = True
+    await db_repo.update_user(new_admin)
     await message.answer("Администратор добавлен!")
 
 
-@admin_router.message(Command("del_admin"), IsAdmin(ADMINS))
-async def add_admin(message: Message, command: CommandObject, state: FSMContext):
+@admin_router.message(Command("del_admin"))
+async def remove_admin(message: Message, command: CommandObject, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
     if not user:
         return
     command_args: str = command.args
-    if command_args in ADMINS:
-        ADMINS.remove(command_args)
-        await message.answer("Администратор удален!")
+    if not command.args or not command.args.isdigit():
+            await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/remove_admin 123456789")
+            return
+    
+    db_repo = await db.get_repository()
+    old_admin = await db_repo.get_user(int(command_args))
+    if not old_admin or not old_admin.is_admin:
+        await message.answer("Кажется, пользователя с таким id не существует или он не является администратором.")
         return
-    await message.answer("Администратор с таким id не найден!")
+    old_admin.is_admin = False
+    await db_repo.update_user(old_admin)
+    await message.answer("Администратор удален!")

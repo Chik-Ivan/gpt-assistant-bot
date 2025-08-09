@@ -13,6 +13,7 @@ class User(BaseModel):
     question_dialog: Optional[List[Dict]] = None
     access: bool = False
     created_at: datetime = datetime.now(pytz.timezone('Europe/Moscow'))
+    is_admin: bool = False
 
     class Config:
         json_encoders = {

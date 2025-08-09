@@ -18,8 +18,8 @@ class DatabaseRepository:
     async def create_user(self, user: User) -> bool:
         """Добавление нового пользователя"""
         query = """
-        INSERT INTO users_data (id, goal, stages_plan, substages_plan, messages, access, created_at, question_dialog)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO users_data (id, goal, stages_plan, substages_plan, messages, access, created_at, question_dialog, is_admin)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (id) DO NOTHING
         RETURNING id
         """
@@ -34,7 +34,8 @@ class DatabaseRepository:
                 json.dumps(user.messages) if user.messages else None,
                 user.access,
                 user.created_at,
-                json.dumps(user.question_dialog) if user.question_dialog else None
+                json.dumps(user.question_dialog) if user.question_dialog else None,
+                user.is_admin
             )
             return result is not None
         
@@ -77,7 +78,8 @@ class DatabaseRepository:
                     messages=messages,
                     question_dialog=question_dialog,
                     access=record['access'],
-                    created_at=record['created_at']
+                    created_at=record['created_at'],
+                    is_admin=record["is_admin"]
                 )
             logging.warning(f"Пользователь с id={user_id} не найден в БД")
             return None
@@ -109,7 +111,8 @@ class DatabaseRepository:
             question_dialog = $4,
             access = $5,
             substages_plan = $6
-        WHERE id = $7
+            is_admin = $7
+        WHERE id = $8
         """
         
         async with self.pool.acquire() as conn:
@@ -121,6 +124,7 @@ class DatabaseRepository:
                 json.dumps(user.question_dialog) if user.question_dialog else None,
                 user.access,
                 json.dumps(user.substages_plan) if user.substages_plan else None,
+                user.is_admin,
                 user.id
             )
 
