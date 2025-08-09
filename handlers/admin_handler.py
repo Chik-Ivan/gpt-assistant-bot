@@ -36,7 +36,7 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
             await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/access_true 123456789")
             return
         user = await db_repo.get_user(int(command_args))
-        user.access = "TRUE"
+        user.access = True
         await db_repo.update_user(user)
         await message.answer("Доступ выдан успешно!")
     except Exception as e:
@@ -53,10 +53,10 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
     db_repo = await db.get_repository()
     try:
         if not command.args or not command.args.isdigit():
-            await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/access_true 123456789")
+            await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/access_false 123456789")
             return
         user = await db_repo.get_user(int(command_args))
-        user.access = "FALSE"
+        user.access = False
         await db_repo.update_user(user)
         await message.answer("Доступ пользователю запрещен!")
     except Exception as e:
@@ -71,7 +71,7 @@ async def add_admin(message: Message, command: CommandObject, state: FSMContext)
         return
     command_args: str = command.args
     if not command.args or not command.args.isdigit():
-            await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/access_true 123456789")
+            await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/add_admin 123456789")
             return
     ADMINS.append(command_args)
     await message.answer("Администратор добавлен!")
