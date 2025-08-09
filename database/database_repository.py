@@ -110,7 +110,7 @@ class DatabaseRepository:
             messages = $3,
             question_dialog = $4,
             access = $5,
-            substages_plan = $6
+            substages_plan = $6,
             is_admin = $7
         WHERE id = $8
         """
