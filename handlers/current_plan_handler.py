@@ -5,13 +5,11 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.filters import StateFilter
 from database.core import db
 from create_bot import bot
 from database.models import User, UserTask
 from typing import Optional
 from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb
-from utils.all_utils import extract_number
 from gpt import gpt 
 
 
@@ -42,7 +40,7 @@ async def check_plan(user_id: int, message: Message|CallbackQuery, state: FSMCon
         return None
     elif cur_state == AskQuestion.ask_question:
         await send_text(
-            "Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?",
+            "Кажется, сейчас мы обсуждаем детали твоего плана, хочешь прекратить это?",
             reply_markup=stop_question_kb()
         )
         return None
@@ -69,14 +67,6 @@ async def stop_question(call: CallbackQuery, state: FSMContext):
     user = await db_repo.get_user(call.from_user.id)
     user.question_dialog = None
     await db_repo.update_user(user)
-
-@current_plan_router.message(F.text=="🎯 Текущая цель")
-async def get_current_goal(message: Message, state: FSMContext):
-    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
-        user = await check_plan(message.from_user.id, message, state)
-        if not user:
-            return
-        await message.answer(f"Ваша текущая цель: {user.goal}" if user.goal else "В данный момент цель не задана. Попробуйте создать новый план")
 
 
 @current_plan_router.message(F.text=="🗒️ Текущий план")
@@ -125,11 +115,14 @@ async def plan_status(message: Message, state: FSMContext):
             await message.answer("Кажется возникли какие-то неполадки или у вас отсутсвует план.\n"
                                  "Попробуйте создать новый план.")
             return
+        total_steps = len(user_task.deadlines)
+        normalized_step = round((user_task.current_step / total_steps) * 15)
+        normalized_step = min(max(normalized_step, 0), 15)
         text = ("<b>Статус плана:</b>\n\n📊 <b>Прогресс:</b>\n" +
-                "⏹︎" * (user_task.current_step) +
-                "░" * (len(user_task.deadlines) - user_task.current_step) + 
-                f"  <b>{int((user_task.current_step) / len(user_task.deadlines) * 100)} %</b>\n"
-                f"<b>✅ Этапы {user_task.current_step}/{len(user_task.deadlines)}</b>\n"
+                "⏹︎" * (normalized_step) +
+                "░" * (15 - normalized_step) + 
+                f"  <b>{int((user_task.current_step) / total_steps * 100)} %</b>\n"
+                f"<b>✅ Этапы {user_task.current_step}/{total_steps}</b>\n"
                 f"🔥 <b>Баллы: *не сказали от чего расчитываются*</b>")
         await message.answer(text)
         

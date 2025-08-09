@@ -18,10 +18,10 @@ async def get_admin_panel(message: Message, state: FSMContext):
     if not user:
         return
     await message.answer("Команды для админа:\n\n"
-                   "/access_true + <id пользователя> выдает юзеру доступ к боту\n\n"
-                   "/access_false + <id пользователя> забирает у пользователя доступ\n\n"
-                   "/add_admin + <id пользователя> добавляет админа с указаным id\n\n"
-                   "/del_admin + <id пользователя> удаляет админа\n\n"
+                   "/access_true + *id пользователя* выдает юзеру доступ к боту\n\n"
+                   "/access_false + *id пользователя* забирает у пользователя доступ\n\n"
+                   "/add_admin + *id пользователя* добавляет админа с указаным id\n\n"
+                   "/del_admin + *id пользователя* удаляет админа\n\n"
                    "/check_appeals позволяет проверять обращения пользователя в поддержку (В разработке!)")
 
 @admin_router.message(Command("access_true"), IsAdmin(ADMINS))

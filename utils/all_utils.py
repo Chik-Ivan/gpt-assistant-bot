@@ -1,5 +1,5 @@
 import re
-
+from datetime import datetime
 
 def extract_between(text, start, end):
     try:
@@ -32,3 +32,15 @@ def extract_number(text: str) -> int | None:
         return int(match.group(1))
     else:
         return None
+    
+def extract_date_from_string(text: str) -> datetime:
+    date_pattern = r"\b(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{4})\b"
+    match = re.search(date_pattern, text)
+    
+    if not match:
+        raise ValueError(f"Дата не найдена в строке: '{text}'")
+    
+    day, month, year = match.groups()
+    date_str = f"{day}.{month}.{year}"
+    
+    return datetime.strptime(date_str, "%d.%m.%Y").date()

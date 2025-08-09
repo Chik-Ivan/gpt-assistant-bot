@@ -1,5 +1,4 @@
 import logging
-import re
 import json
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
@@ -13,9 +12,9 @@ from keyboards.all_text_keyboards import get_main_keyboard
 from database.core import db
 from database.models import UserTask
 from gpt import gpt, hello_prompt, create_question_prompt, check_answer_prompt, create_plan_prompt
-from utils.all_utils import extract_between, extract_days, parse_plan
 from create_bot import bot
 from handlers.current_plan_handler import AskQuestion
+from utils.all_utils import extract_date_from_string
 
 
 class Plan(StatesGroup):
@@ -75,51 +74,9 @@ async def check_state(message: Message, state: FSMContext):
                              reply_markup=get_continue_create_kb())
         return None
     elif cur_state == AskQuestion.ask_question:
-        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана на неделю, хочешь прекратить это?", reply_markup=stop_question_kb())
+        await message.answer("Кажется, сейчас мы обсуждаем детали твоего плана, хочешь прекратить это?", reply_markup=stop_question_kb())
         return None
     return True
-
-
-@create_plan_router.message(F.text == "📋 Создать план")
-async def start_create_plan(message: Message, state: FSMContext):
-    check = await check_state(message, state)
-    if not check:
-        return
-    db_repo = await db.get_repository()
-    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
-        user = await db_repo.get_user(message.from_user.id)
-
-        if user is None:
-            logging.error("Не найден пользователь при попытке создания нового плана")
-            await message.answer("Ошибка! Обратитесь к администратору.")
-            return
-        else:
-            logging.info(f"Пользователь получен, id: {user.id}")
-
-
-        if user.goal:
-            await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом старый.", 
-                                 reply_markup=get_continue_create_kb())
-            return
-        
-        if user.messages:
-            await message.answer("Вы уже начали заполнять свой персональный план, " 
-                                "для создания нового, вам нужно очистить данные о старом.",
-                                reply_markup=get_continue_create_kb())
-            return
-    
-        
-        reply = gpt.chat_for_plan(hello_prompt)
-        reply = json.loads(reply)
-        if reply["hello_message"]:
-            await message.answer(reply["hello_message"], reply_markup=get_main_keyboard(message.from_user.id))
-            await state.set_state(Plan.confirmation_of_start)
-            user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
-            await db_repo.update_user(user)
-            return
-        logging.info(f"Ответ при приветственном сообщении:\n\n {reply}")
-        await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=get_main_keyboard())
-
 
 
 @create_plan_router.callback_query(F.data == "delete_data")
@@ -147,6 +104,51 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
         logging.error(f"Ошибка: {e}, при удалении данных")
 
 
+@create_plan_router.message(F.text == "📋 Создать план")
+async def start_create_plan(message: Message, state: FSMContext):
+    check = await check_state(message, state)
+    if not check:
+        return
+    db_repo = await db.get_repository()
+    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
+        user = await db_repo.get_user(message.from_user.id)
+
+        if user is None:
+            logging.error("Не найден пользователь при попытке создания нового плана")
+            await message.answer("Ошибка! Обратитесь к администратору.")
+            return
+        else:
+            logging.info(f"Пользователь получен, id: {user.id}")
+
+
+        if user.goal:
+            await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом.", 
+                                 reply_markup=get_continue_create_kb())
+            return
+        
+        if user.messages:
+            await message.answer("Вы уже начали заполнять свой персональный план, " 
+                                "для создания нового, вам нужно очистить данные о старом.",
+                                reply_markup=get_continue_create_kb())
+            return
+    
+        
+        reply = gpt.chat_for_plan(hello_prompt)
+        reply = json.loads(reply)
+        if not reply:
+            await message.answer("Произошла ошибка при попытке создания плана. Попробуйте еще раз позже, если ошибка сохранится обратитесь в поддержку.",
+                                 reply_markup=get_main_keyboard())
+            return
+        if reply["hello_message"]:
+            await message.answer(reply["hello_message"], reply_markup=get_main_keyboard(message.from_user.id))
+            await state.set_state(Plan.confirmation_of_start)
+            user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
+            await db_repo.update_user(user)
+            return
+        logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
+        await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=get_main_keyboard())
+
+
 @create_plan_router.message(Plan.confirmation_of_start)
 async def confirmation_of_start(message: Message, state: FSMContext):
     logging.info("Start confirmation_of_start")
@@ -163,7 +165,7 @@ async def find_level(message: Message, state: FSMContext):
     try:
         add_text_for_check_answer = "в ответе не обязательно должно быть \"Любитель, профи, новичок\" там может быть и что-то другое, например учусь или прохожу курсы для начинающим, или умею делать простые торты"
         add_text = "тебе нужно придумать вопрос о цели пользователя, о том, чего он хочет достичь (это может быть определенный уровень дохода или мастерства, а может быть что-нибудь мелкое. Главное чтобы была цель связанная с кондитерством)"
-        await gpt_step(message, state, add_text, Plan.find_goal)
+        await gpt_step(message, state, add_text, Plan.find_goal, add_text_for_check_answer)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_level")
 
@@ -172,9 +174,9 @@ async def find_level(message: Message, state: FSMContext):
 async def find_goal(message: Message, state: FSMContext):
     logging.info("Start find_goal")
     try:
-        add_text_to_answer_check = "Цель не обязательно должна быть связана с финансами, это может быть и что-то мелкое, главное, чтобы было связано с кондитерством"
+        add_text_for_answer_check = "Цель не обязательно должна быть связана с финансами, это может быть и что-то мелкое, главное, чтобы было связано с кондитерством"
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя о его страхах или возможных препятствиях при достижении его цели"
-        await gpt_step(message, state, add_text, Plan.find_fear, add_text_to_answer_check)
+        await gpt_step(message, state, add_text, Plan.find_fear, add_text_for_answer_check)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_goal")
 
@@ -204,7 +206,6 @@ async def find_time_in_week(message: Message, state: FSMContext):
 async def find_time_for_goal(message: Message, state: FSMContext):
     logging.info("start find_time_for_goal")
     try:
-        
         db_repo = await db.get_repository()
         user = await db_repo.get_user(message.from_user.id)
         prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\""
@@ -231,11 +232,11 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                         stage_num = str(i)
                         if stage_num in substages:
                             for sub in substages[stage_num].values():
-                                date_str = sub.split(" - ")[-1].strip()
-                                deadlines.append(datetime.strptime(date_str, "%d.%m.%Y"))
+                                date = extract_date_from_string(sub)
+                                deadlines.append(date)
                         else:
-                            date_str = stage_value.split(" - ")[-1].strip()
-                            deadlines.append(datetime.strptime(date_str, "%d.%m.%Y"))
+                            date = extract_date_from_string(stage_value)
+                            deadlines.append(date)
                     user_task = await db_repo.get_user_task(user.id)
                     if user_task:
                         user_task.deadlines = deadlines
@@ -269,32 +270,4 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                     logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
     except Exception as e:
         logging.error(f"Ошибка {e}, в find_time_for_goal")
-
-
-
-def get_deadlines(plan: Optional[Dict[str, Dict]]) -> List[datetime]:
-    if not plan:
-        return []
-
-    deadlines = []
-    today = datetime.now()
-    today = datetime(
-        year=today.year,
-        month=today.month,
-        day=today.day,
-        hour=12,
-        minute=0,
-        second=0,
-    )
-
-
-    for week in plan.keys():        
-        for index, task in enumerate(plan[week].keys()):
-            if index == 2:
-                today += timedelta(days=3)
-                deadlines.append(today)
-                continue
-            today += timedelta(days=2)
-            deadlines.append(today)
-
-    return deadlines
+        await message.answer("Произошла ошибка при написании плана, попробуйте еще раз немного позже.\nЕсли ошибка сохраняется и перезапуск бота не помогает - обратитесь в поддержку")

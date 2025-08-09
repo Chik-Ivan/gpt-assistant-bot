@@ -5,7 +5,6 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 from handlers.start_handler import start_router
 from handlers.create_plan_handlers import create_plan_router
 from handlers.current_plan_handler import current_plan_router
-from handlers.data_handler import data_router
 from handlers.admin_handler import admin_router
 from handlers.support_handler import support_router
 from aiohttp import web
@@ -26,7 +25,6 @@ async def main():
 
     dp.include_routers(start_router,
                        current_plan_router,
-                       data_router,
                        support_router,
                        admin_router,
                        create_plan_router)
@@ -62,7 +60,7 @@ async def main():
 
 async def set_commands():
     commands = [
-        BotCommand(command="start", description="start bot")
+        BotCommand(command="start", description="Запускает бота")
     ]
     await bot.set_my_commands(commands=commands, scope=BotCommandScopeDefault())
 
@@ -72,30 +70,4 @@ if __name__ == '__main__':
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Бот остановлен")
-
-
-
-
-# # ==========================
-# # ✅ Напоминания
-# REMINDER_TEXTS = [
-#     "⏰ Проверь свой план! Делаешь успехи?",
-#     "🔔 Не забывай про свои цели!",
-#     "📅 Время проверить прогресс.",
-#     "🔥 Ты молодец! Но цели сами не выполнятся!"
-# ]
-
-# async def generate_reminder_message():
-#     try:
-#         resp = openai.ChatCompletion.create(
-#             model="gpt-3.5-turbo",
-#             messages=[
-#                 {"role": "system", "content": "Ты дружелюбный мотиватор."},
-#                 {"role": "user", "content": "Создай короткое напоминание (одно предложение)."}
-#             ],
-#             max_tokens=50, temperature=0.8
-#         )
-#         return resp["choices"][0]["message"]["content"].strip()
-#     except:
-#         return random.choice(REMINDER_TEXTS)
 

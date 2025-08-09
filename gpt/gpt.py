@@ -50,7 +50,7 @@ class GPT:
             question_dialog.append({"role": "user", "content": "Привет, у меня есть вопросы по предоставленному тобой плану."})
             try:
                 response = self.openai.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o",
                     messages=question_dialog,
                     temperature=0.7
                 )
@@ -63,7 +63,7 @@ class GPT:
         try:
             question_dialog.append({"role": "user", "content": user_input if user_input else ""})
             response = self.openai.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o",
                 messages=question_dialog,
                 temperature=0.7
             )
