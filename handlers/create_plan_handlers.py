@@ -135,18 +135,19 @@ async def start_create_plan(message: Message, state: FSMContext):
         
         reply = gpt.chat_for_plan(hello_prompt)
         reply = json.loads(reply)
+        main_keyboard = await get_main_keyboard(message.from_user.id)
         if not reply:
             await message.answer("Произошла ошибка при попытке создания плана. Попробуйте еще раз позже, если ошибка сохранится обратитесь в поддержку.",
-                                 reply_markup=get_main_keyboard())
+                                 reply_markup=main_keyboard)
             return
         if reply["hello_message"]:
-            await message.answer(reply["hello_message"], reply_markup=get_main_keyboard(message.from_user.id))
+            await message.answer(reply["hello_message"], reply_markup=main_keyboard)
             await state.set_state(Plan.confirmation_of_start)
             user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
             await db_repo.update_user(user)
             return
         logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
-        await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=get_main_keyboard())
+        await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
 
 
 @create_plan_router.message(Plan.confirmation_of_start)
