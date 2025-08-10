@@ -130,51 +130,66 @@ async def plan_status(message: Message, state: FSMContext):
 
 async def get_current_stage_info(user_task: UserTask, user: User) -> str:
     current_step = user_task.current_step
-
-    deadline_map = []
-    for i, (stage_key, stage_val) in enumerate(user.stages_plan.items(), start=1):
-        stage_tasks = []
-        substage_key = str(i)
+    deadlines = user_task.deadlines
+    
+    if not deadlines:
+        return "Нет активных задач или дедлайнов."
+    
+    all_tasks = []
+    deadline_idx = 0
+    
+    for stage_num, (stage_key, stage_val) in enumerate(user.stages_plan.items(), start=1):
+        substage_key = str(stage_num)
+        
         if substage_key in user.substages_plan:
-            for sub_desc in user.substages_plan[substage_key].values():
-                desc, date_str = sub_desc.rsplit(" - ", 1)
-                deadline = extract_date_from_string(date_str)
-                stage_tasks.append((desc, deadline))
+            for sub_key, sub_val in user.substages_plan[substage_key].items():
+                if deadline_idx >= len(deadlines):
+                    break
+                desc = sub_val.split(" - ")[0].strip()
+                all_tasks.append({
+                    'type': 'substage',
+                    'stage_num': stage_num,
+                    'stage_name': stage_key,
+                    'stage_desc': stage_val.split(" - ")[0].strip(),
+                    'desc': desc,
+                    'deadline': deadlines[deadline_idx]
+                })
+                deadline_idx += 1
         else:
-            desc, date_str = sub_desc.rsplit(" - ", 1)
-            deadline = extract_date_from_string(date_str)
-            stage_tasks.append((desc, deadline))
-        deadline_map.append((i, stage_key, stage_val, stage_tasks))
-
-    flat_deadlines = []
-    for stage in deadline_map:
-        stage_num, stage_name, stage_val, tasks = stage
-        for task in tasks:
-            flat_deadlines.append((stage_num, stage_name, stage_val, task))
-
-    current_stage_num = flat_deadlines[current_step][0]
-    total_stage = len(user.stages_plan)
-
+            if deadline_idx >= len(deadlines):
+                break
+            desc = stage_val.split(" - ")[0].strip()
+            all_tasks.append({
+                'type': 'stage',
+                'stage_num': stage_num,
+                'stage_name': stage_key,
+                'stage_desc': desc,
+                'desc': desc,
+                'deadline': deadlines[deadline_idx]
+            })
+            deadline_idx += 1
+    
+    if current_step >= len(all_tasks):
+        current_step = len(all_tasks) - 1
+    
+    current_task = all_tasks[current_step]
+    current_stage_num = current_task['stage_num']
+    
     text = [
-        f"На данный момент вы на {current_stage_num} этапе плана из {total_stage}!\n",
-        f"Ваши задачи на этом этапе и их дедлайны:\n\n"
+        f"На данный момент вы на {current_stage_num} этапе плана из {len(user.stages_plan)}!\n",
+        f"Текущий дедлайн: {current_task['deadline'].strftime('%d.%m.%Y')}\n\n",
+        f"🔹 {current_task['stage_name']}: {current_task['stage_desc']}\n\n"
     ]
-
-    for stage_num, stage_name, stage_val, stage_tasks in deadline_map:
-        if stage_num == current_stage_num:
-            text.append(f"🔹 {stage_name}: {stage_val}\n\n<b>Подэтапы:</b>\n")
-            substage_key = str(stage_num)
-
-            if substage_key in user.substages_plan:
-                for desc, dl in stage_tasks:
-                    text.append(f"• {desc} — до {dl.strftime('%d.%m.%Y')}\n\n")
-            else:
-                desc, date_str = stage_val.rsplit(" - ", 1)
-                dl = datetime.strptime(date_str.strip(), "%d.%m.%Y")
-                text.append(f"• Шагов нет – только основной этап:\n")
-                text.append(f"  {desc} — до {dl.strftime('%d.%m.%Y')}\n\n")
-            break
-
+    
+    stage_tasks = [t for t in all_tasks if t['stage_num'] == current_stage_num]
+    
+    if len(stage_tasks) > 1 or (len(stage_tasks) == 1 and stage_tasks[0]['type'] == 'substage'):
+        text.append("<b>Подэтапы:</b>\n")
+        for task in stage_tasks:
+            text.append(f"• {task['desc']} — до {task['deadline'].strftime('%d.%m.%Y')}\n")
+    else:
+        text.append(f"• {current_task['desc']} — до {current_task['deadline'].strftime('%d.%m.%Y')}\n")
+    
     return "".join(text)
 
 
