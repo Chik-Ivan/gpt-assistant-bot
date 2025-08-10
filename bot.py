@@ -39,7 +39,7 @@ async def main():
         send_reminders,
         'cron',
         hour=17,
-        minute=20,
+        minute=25,
         timezone=pytz.timezone('Europe/Moscow'),
         args=(bot,)
     )
