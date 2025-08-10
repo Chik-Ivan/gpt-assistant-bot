@@ -92,4 +92,5 @@ async def postponement_deadlines(user_task: UserTask):
         new_deadlines.append((deadline + timedelta(days=2)).strftime('%d.%m.%Y'))
     
     user_task.deadlines = new_deadlines
+    user_task.current_deadline = user_task.deadlines[user_task.current_step]
     await db_repo.update_user_task(user_task)

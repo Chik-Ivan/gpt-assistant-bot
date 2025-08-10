@@ -328,8 +328,9 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     ]
     user_task.deadlines = adjusted
     user_task.current_step += 1
+    user_task.current_deadline = user_task.deadlines[user_task.current_step]
     await db_repo.update_user_task(user_task)   
-    await call.message.answer("Дедлайны передвинуты") 
+    await call.message.answer("Ваши дедлайны передвинуты!") 
 
 
 @current_plan_router.message(AskQuestion.ask_question)
