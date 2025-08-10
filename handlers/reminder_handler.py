@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery
 from database.core import db
 from database.models import UserTask
 from keyboards.all_inline_keyboards import remind_about_deadline_kb
-
+from gpt import gpt, end_plan_prompt, end_task_prompt, comfort_prompt
 
 logger = logging.getLogger(__name__)
 reminder_router = Router()
@@ -62,11 +62,13 @@ async def task_complited_on_time(call: CallbackQuery):
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
     if user_task.current_deadline <= datetime.now().strftime('%d.%m.%Y'):
-        await call.message.answer(text="Поздравляю с выполнением задачи! Давай же по скорее приступим к следующей!")
         user_task.current_step += 1
         if user_task.current_step == len(user_task.deadlines):
-            await call.message.answer("Ух ты! похоже ты завершил свой план! Поздравляю тебя!")
+            text = gpt.create_reminder(end_plan_prompt)
+            await call.message.answer(text)
             return
+        text = gpt.create_reminder(end_task_prompt)
+        await call.message.answer(text=text)
         user_task.current_deadline = user_task.deadlines[user_task.current_step]
         await db_repo.update_user_task(user_task)
     else:
@@ -78,10 +80,11 @@ async def postponement_deadlines_handler(call: CallbackQuery):
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
     if datetime.strptime(user_task.current_deadline, '%d.%m.%Y').date() <= datetime.now().date():
-        await call.message.answer(text="Не беспокойся, у всех бывают трудности, я перенесу твой дедлайн на пару дней, а через пару дней посмотрим на твои результаты:)")
+        text = gpt.create_reminder(comfort_prompt)
+        await call.message.answer(text=text)
         await postponement_deadlines(user_task)
     else:
-        await call.message.answer(text="Кажется, что твой дедлайн и так не сегодня")
+        await call.message.answer(text="Кажется, что твой дедлайн и так не сегодня.")
 
 async def postponement_deadlines(user_task: UserTask):
     db_repo = await db.get_repository()

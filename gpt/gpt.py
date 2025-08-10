@@ -80,3 +80,13 @@ class GPT:
             logging.error(f"Ошибка GPT {e}")
             return (None, f"Ошибка {e}", 2)
         
+    def create_reminder(self, prompt: str) -> str:
+        message = [{"role": "system", "content": prompt}]
+        response = self.openai.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=message,
+                    temperature=0.7
+                )
+        reply = response.choices[0].message.content
+        return reply
+        

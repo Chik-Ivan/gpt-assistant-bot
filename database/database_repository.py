@@ -177,7 +177,8 @@ class DatabaseRepository:
             FROM users_tasks ut
             JOIN users_data ud ON ut.id = ud.id
             WHERE 
-                ut.current_deadline::date = CURRENT_DATE AND
+                ut.current_deadline IS NOT NULL AND
+                (ut.current_deadline::date = CURRENT_DATE OR ut.current_deadline::date < CURRENT_DATE) AND
                 ud.access = TRUE
         """
         
