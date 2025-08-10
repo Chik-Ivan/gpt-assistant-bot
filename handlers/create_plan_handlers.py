@@ -52,10 +52,10 @@ async def gpt_step(message: Message, state: FSMContext,
                 reply = json.loads(reply)
                 if reply["question_text"] and (reply["answer_options"] or not need_answer_options) and reply["reply"]:
                     question_text = (f"Отмечаю: <b>{message.text}</b>\n\n"
-                                    f"📌 <i>Мини-итог</i>: {reply["reply"]}\n\n"
+                                    f"📌 <i>Мини-итог</i>: {reply['reply']}\n\n"
                                     f"-----\n\n"
                                     f"<b>Вопрос {question_number}</b>\n"
-                                    f"{reply["question_text"]}")
+                                    f"{reply['question_text']}")
                     if need_answer_options:
                         question_text += "\n"
                         for key, value in reply["answer_options"]:
@@ -282,8 +282,8 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                     text = ("Хорошо! Спасибо, что ответил на мои вопросы!\n\n"
                             "Вот твой план по достижению цели! \nА с помощью кнопки \"❗ Задания этапа \", "
                             "ты можешь увидеть подэтапы плана при их наличии\n\n-----\n\n"
-                            f"<b>1. Твоя конечная цель:</b>\n\n{reply["goal"]}\n\n-----\n\n"
-                            f"<b>2. Твой персональный план основывается на:\n\n{reply["warp"]}\n\n----\n\n"
+                            f"<b>1. Твоя конечная цель:</b>\n\n{reply['goal']}\n\n-----\n\n"
+                            f"<b>2. Твой персональный план основывается на:\n\n{reply['warp']}\n\n----\n\n"
                             f"<b>3. Пошаговый план и сроки:</b>")
                     user.stages_plan = stages
                     user.substages_plan = substages
