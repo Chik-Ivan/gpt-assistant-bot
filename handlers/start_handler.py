@@ -30,7 +30,7 @@ async def cmd_start(message: Message, state: FSMContext):
     
     new_user = User(
         id=message.from_user.id,
-        goal="",
+        goal=None,
         stages_plan=None,
         substages_plan = None,
         messages=None,
