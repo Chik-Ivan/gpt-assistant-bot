@@ -48,17 +48,17 @@ async def gpt_step(message: Message, state: FSMContext,
             case 0:
                 user.messages.append({"role": "user", "content": message.text})
                 prompt = create_question_prompt + f"{user.messages}\n\n {add_to_prompt}"
-                reply = gpt.chat_for_plan(prompt)
-                reply = json.loads(reply)
-                if reply["question_text"] and (reply["answer_options"] or not need_answer_options) and reply["reply"]:
+                reply_question = gpt.chat_for_plan(prompt)
+                reply_question = json.loads(reply_question)
+                if reply_question["question_text"] and (reply_question["answer_options"] or not need_answer_options) and reply["reply"]:
                     question_text = (f"Отмечаю: <b>{message.text}</b>\n\n"
                                     f"📌 <i>Мини-итог</i>: {reply['reply']}\n\n"
                                     f"-----\n\n"
                                     f"<b>Вопрос {question_number}</b>\n"
-                                    f"{reply['question_text']}")
+                                    f"{reply_question['question_text']}")
                     if need_answer_options:
                         question_text += "\n"
-                        for key, value in reply["answer_options"]:
+                        for key, value in reply_question["answer_options"]:
                             question_text += f"• {key}) {value}\n"
                     await message.answer(question_text)
                     await state.set_state(next_state)
