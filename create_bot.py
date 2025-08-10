@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 dp = Dispatcher(storage=MemoryStorage())
-dp.middleware.setup(AccessMiddleware())
+dp.message.middleware.register(AccessMiddleware())
 
 executors = {
     'default': AsyncIOExecutor(),

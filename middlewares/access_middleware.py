@@ -1,12 +1,12 @@
 import logging
+from aiogram import BaseMiddleware
 from aiogram.types import Message
-from aiogram.dispatcher.middlewares import BaseMiddleware
-from database.core import db
 from aiogram.dispatcher.flags import CancelHandler
+from database.core import db
 from database.models import User
 
 class AccessMiddleware(BaseMiddleware):
-    async def on_pre_process_message(self, message: Message, data: dict):
+    async def __call__(self, handler, message: Message, data):
         if not message.text or message.text.startswith('/'):
             return
         db_repo = await db.get_repository()
@@ -26,3 +26,4 @@ class AccessMiddleware(BaseMiddleware):
             await message.answer("Похоже, у вас нет доступа к этому боту")
             logging.warning(f"Попытка воспользоваться ботом без доступа\n\nid пользователя: {user.id}")
             raise CancelHandler()
+        return await handler(message, data)
