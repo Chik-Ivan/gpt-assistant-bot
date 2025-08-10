@@ -11,6 +11,7 @@ from database.models import User, UserTask
 from typing import Optional
 from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb
 from gpt import gpt 
+from utils.all_utils import extract_date_from_string
 
 
 current_plan_router = Router()
@@ -136,12 +137,10 @@ async def get_current_stage_info(user_task: UserTask, user: User) -> str:
         substage_key = str(i)
         if substage_key in user.substages_plan:
             for sub_desc in user.substages_plan[substage_key].values():
-                desc, date_str = sub_desc.rsplit(" - ", 1)
-                deadline = datetime.strptime(date_str.strip(), "%d.%m.%Y")
+                deadline = extract_date_from_string(sub_desc)
                 stage_tasks.append((desc, deadline))
         else:
-            desc, date_str = stage_val.rsplit(" - ", 1)
-            deadline = datetime.strptime(date_str.strip(), "%d.%m.%Y")
+            deadline = extract_date_from_string(stage_val)
             stage_tasks.append((desc, deadline))
         deadline_map.append((i, stage_key, stage_val, stage_tasks))
 

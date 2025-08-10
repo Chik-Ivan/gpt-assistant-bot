@@ -284,7 +284,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                             "ты можешь увидеть подэтапы плана при их наличии\n\n-----\n\n"
                             f"<b>1. Твоя конечная цель:</b>\n\n{reply['goal']}\n\n-----\n\n"
                             f"<b>2. Твой персональный план основывается на:</b>\n\n{reply['warp']}\n\n----\n\n"
-                            f"<b>3. Пошаговый план и сроки:</b>")
+                            f"<b>3. Пошаговый план и сроки:</b>\n\n")
                     user.stages_plan = stages
                     user.substages_plan = substages
                     user.goal = reply["goal"]
@@ -317,7 +317,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                         stage_num = str(i)
                         text += (f"<b>{stage_key}</b> - {stage_value}\n\n")
                         if stage_num in user.substages_plan:
-                            text += ("<b>Шаги этого эпата:</b>\n\n")
+                            text += ("<b>Шаги этого этапа:</b>\n\n")
                             for sub_name, sub_value in user.substages_plan[stage_num].items():
                                 text += (f"      {sub_name} - {sub_value}\n\n")
                     text += reply["motivation"]
