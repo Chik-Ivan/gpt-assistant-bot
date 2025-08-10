@@ -187,7 +187,7 @@ async def plan_status(message: Message, state: FSMContext):
         normalized_step = round((user_task.current_step / total_steps) * 18)
         normalized_step = min(max(normalized_step, 0), 18)
         text = ("<b>Статус плана:</b>\n\n📊 <b>Прогресс:</b>\n" +
-                "⏹︎" * (normalized_step) +
+                "◼︎" * (normalized_step) +
                 "░" * (18 - normalized_step) + 
                 f"  <b>{int((user_task.current_step) / total_steps * 100)} %</b>\n"
                 f"<b>✅ Этапы {user_task.current_step}/{total_steps}</b>\n"
