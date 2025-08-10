@@ -60,7 +60,7 @@ async def check_deadlines_send_reminders(bot: Bot):
 async def task_complited_on_time(call: CallbackQuery):
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
-    current_deadline = datetime.strptime(user_task.current_deadline, '%d.%m.%Y').date()
+    current_deadline = user_task.current_deadline, '%d.%m.%Y'.date()
     today = datetime.now().date()
     if current_deadline <= today:
         user_task.current_step += 1
@@ -80,7 +80,7 @@ async def task_complited_on_time(call: CallbackQuery):
 async def postponement_deadlines_handler(call: CallbackQuery):
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
-    current_deadline = datetime.strptime(user_task.current_deadline, '%d.%m.%Y').date()
+    current_deadline = user_task.current_deadline.date()
     today = datetime.now().date()
     if current_deadline <= today:
         text = gpt.create_reminder(comfort_prompt)
@@ -96,5 +96,5 @@ async def postponement_deadlines(user_task: UserTask):
     ]
     
     user_task.deadlines = adjusted
-    user_task.current_deadline = datetime.strptime(user_task.deadlines[user_task.current_step], "%d.%m.%Y").date()
+    user_task.current_deadline = user_task.deadlines[user_task.current_step]
     await db_repo.update_user_task(user_task)
