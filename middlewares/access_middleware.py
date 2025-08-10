@@ -1,7 +1,6 @@
 import logging
 from aiogram import BaseMiddleware
 from aiogram.types import Message
-from aiogram.dispatcher.flags import CancelHandler
 from database.core import db
 from database.models import User
 
@@ -25,5 +24,5 @@ class AccessMiddleware(BaseMiddleware):
         if not user.access and not user.is_admin:
             await message.answer("Похоже, у вас нет доступа к этому боту")
             logging.warning(f"Попытка воспользоваться ботом без доступа\n\nid пользователя: {user.id}")
-            raise CancelHandler()
+            return
         return await handler(message, data)
