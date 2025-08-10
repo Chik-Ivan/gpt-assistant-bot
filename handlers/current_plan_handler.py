@@ -71,33 +71,81 @@ async def stop_question(call: CallbackQuery, state: FSMContext):
 
 
 @current_plan_router.message(F.text=="🗒️ Текущий план")
-async def get_cuurent_plan(message: Message, state: FSMContext):
+async def get_current_plan(message: Message, state: FSMContext):
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
         user = await check_plan(message.from_user.id, message, state)
         if not user:
             return
-        goal = user.goal
-        if not goal:
+        
+        if not user.goal:
             await message.answer("В данный момент у вас нет созданного плана. Воспользуйтесь кнопкой \"📋 Создать новый план\", чтобы создать его!")
             return
+            
         db_repo = await db.get_repository()
         user_task = await db_repo.get_user_task(user.id)
+        
         if not user_task.deadlines:
-            await message.answer("Кажется возникли какие-то неполадки или у вас отсутсвует план.\n"
-                                 "Попробуйте создать новый план.")
+            await message.answer("Кажется возникли какие-то неполадки или у вас отсутствует план.\n"
+                               "Попробуйте создать новый план.")
             return
         
-        text = ["Текущий план выглядит так:\n"]
-        for i, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
-                        stage_num = str(i)
-                        text.append(f"<b>{stage_key}</b> - {stage_value}\n\n")
-                        if stage_num in user.substages_plan:
-                            text.append("<b>Шаги этого эпата:</b>\n\n")
-                            for sub_name, sub_value in user.substages_plan[stage_num].items():
-                                text.append(f"      {sub_name} - {sub_value}\n\n")
-        text.append("Продолжай работать и точно достигнешь всех своих целей!")
-        text = "".join(text)
-        await message.answer(text)
+        text = ["<b>Текущий план выглядит так:</b>\n\n"]
+        text.append(f"<b>🎯 Конечная цель:</b> {user.goal}\n\n")
+        
+        all_tasks = []
+        deadline_idx = 0
+        
+        for stage_num, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
+            stage_desc = stage_value.split(" - ")[0]
+            
+            if deadline_idx < len(user_task.deadlines):
+                all_tasks.append({
+                    'type': 'stage',
+                    'stage_num': stage_num,
+                    'name': stage_key,
+                    'desc': stage_desc,
+                    'deadline': user_task.deadlines[deadline_idx],
+                    'is_current': deadline_idx == user_task.current_step
+                })
+                deadline_idx += 1
+            
+            stage_str_num = str(stage_num)
+            if stage_str_num in user.substages_plan:
+                for sub_name, sub_value in user.substages_plan[stage_str_num].items():
+                    if deadline_idx < len(user_task.deadlines):
+                        sub_desc = sub_value.split(" - ")[0]
+                        all_tasks.append({
+                            'type': 'substage',
+                            'stage_num': stage_num,
+                            'name': sub_name,
+                            'desc': sub_desc,
+                            'deadline': user_task.deadlines[deadline_idx],
+                            'is_current': deadline_idx == user_task.current_step
+                        })
+                        deadline_idx += 1
+        
+        for stage_num, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
+            stage_tasks = [t for t in all_tasks if t['stage_num'] == stage_num]
+            
+            if not stage_tasks:
+                continue
+                
+            main_task = next(t for t in stage_tasks if t['type'] == 'stage')
+            status = "🔵" if main_task['is_current'] else "✅" if user_task.current_step > all_tasks.index(main_task) else "⚪"
+            text.append(f"{status} <b>{stage_key}</b> - {main_task['desc']} (до {main_task['deadline'].strftime('%d.%m.%Y')})\n")
+            
+            substages = [t for t in stage_tasks if t['type'] == 'substage']
+            if substages:
+                text.append("<i>Подэтапы:</i>\n")
+                for sub in substages:
+                    sub_status = "🟢" if sub['is_current'] else "✅" if user_task.current_step > all_tasks.index(sub) else "⚪"
+                    text.append(f"  {sub_status} {sub['name']} - {sub['desc']} (до {sub['deadline'].strftime('%d.%m.%Y')})\n")
+            
+            text.append("\n")
+        
+        text.append("\nТы на правильном пути! Продолжай в том же духе! 💪")
+        
+        await message.answer("".join(text))
 
 
 @current_plan_router.message(F.text=="⌛ Статус плана")
