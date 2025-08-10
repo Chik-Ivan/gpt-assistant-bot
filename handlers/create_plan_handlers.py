@@ -58,7 +58,7 @@ async def gpt_step(message: Message, state: FSMContext,
                                     f"{reply_question['question_text']}")
                     if need_answer_options:
                         question_text += "\n"
-                        for key, value in reply_question["answer_options"]:
+                        for key, value in reply_question["answer_options"].items():
                             question_text += f"• {key}) {value}\n"
                     await message.answer(question_text)
                     await state.set_state(next_state)
