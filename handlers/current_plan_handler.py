@@ -137,10 +137,12 @@ async def get_current_stage_info(user_task: UserTask, user: User) -> str:
         substage_key = str(i)
         if substage_key in user.substages_plan:
             for sub_desc in user.substages_plan[substage_key].values():
-                deadline = extract_date_from_string(sub_desc)
+                desc, date_str = sub_desc.rsplit(" - ", 1)
+                deadline = extract_date_from_string(date_str)
                 stage_tasks.append((desc, deadline))
         else:
-            deadline = extract_date_from_string(stage_val)
+            desc, date_str = sub_desc.rsplit(" - ", 1)
+            deadline = extract_date_from_string(date_str)
             stage_tasks.append((desc, deadline))
         deadline_map.append((i, stage_key, stage_val, stage_tasks))
 
