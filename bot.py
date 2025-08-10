@@ -1,5 +1,6 @@
 import asyncio
-from create_bot import bot, dp, logger
+import pytz
+from create_bot import bot, dp, logger, scheduler
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from handlers.start_handler import start_router
@@ -7,6 +8,7 @@ from handlers.create_plan_handlers import create_plan_router
 from handlers.current_plan_handler import current_plan_router
 from handlers.admin_handler import admin_router
 from handlers.support_handler import support_router
+from handlers.reminder_handler import send_reminders, check_deadlines_send_reminders, reminder_router
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
 from database.core import db
@@ -27,7 +29,28 @@ async def main():
                        current_plan_router,
                        support_router,
                        admin_router,
+                       reminder_router,
                        create_plan_router)
+    
+    scheduler.start()
+
+
+    scheduler.add_job(
+        send_reminders,
+        'cron',
+        hour=12,
+        minute=0,
+        timezone=pytz.timezone('Europe/Moscow'),
+        args=(bot,)
+    )
+    scheduler.add_job(
+        check_deadlines_send_reminders,
+        'cron',
+        hour=13,
+        minute=0,
+        timezone=pytz.timezone('Europe/Moscow'),
+        args=(bot,)
+    )
 
     dp.startup.register(on_startup)
 
@@ -55,6 +78,7 @@ async def main():
         logger.info(f"Бот успешно запущен на порту {port}. URL: {WEBHOOK_URL}")
         await asyncio.Event().wait()
     finally:
+        scheduler.shutdown()
         await bot.session.close()
 
 

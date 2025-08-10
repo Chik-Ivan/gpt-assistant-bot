@@ -28,3 +28,11 @@ def stop_question_kb():
         [InlineKeyboardButton(text="Прекратить обусждение!", callback_data="stop_question")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=kb_list)
+
+
+def remind_about_deadline_kb():
+    kb_list = [
+        [InlineKeyboardButton(text="Задача выполнена!", callback_data="task_completed_on_time")],
+        [InlineKeyboardButton(text="Не успеваю, сдвинь дедлайны!", callback_data="postponement_deadlines")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=kb_list)

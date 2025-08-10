@@ -147,3 +147,40 @@ class DatabaseRepository:
                 json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None,
                 user_task.id
             )
+
+
+    async def get_users_for_reminder_create_plan(self, days_threshold: int = 1) -> list[dict]:
+        """
+            Получаем пользователей, которым нужно напомнить о создании плана
+            :param days_threshold: сколько дней прошло с момента регистрации
+            :return: список словарей с id пользователей
+        """
+        query = """
+            SELECT id FROM users_data
+            WHERE 
+                (goal IS NULL OR stages_plan = NULL) AND
+                created_at < NOW() - INTERVAL '1 day' * $1 AND
+                access = TRUE
+        """
+        
+        async with self.pool.acquire() as conn:
+            records = await conn.fetch(query, days_threshold)
+            return [dict(record) for record in records]
+
+    async def get_users_to_remind_deadline(self) -> list[dict]:
+        """
+            Получаем пользователей, у которых сегодня дедлайн по задаче
+            :return: список словарей с id пользователей
+        """
+        query = """
+            SELECT ut.id
+            FROM users_tasks ut
+            JOIN users_data ud ON ut.id = ud.id
+            WHERE 
+                ut.current_deadline::date = CURRENT_DATE AND
+                ud.access = TRUE
+        """
+        
+        async with self.pool.acquire() as conn:
+            records = await conn.fetch(query)
+            return [dict(record) for record in records]
