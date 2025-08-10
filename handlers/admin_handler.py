@@ -68,6 +68,8 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
             await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/access_false 123456789")
             return
         user = await db_repo.get_user(int(command_args))
+        if not user:
+            await message.answer("Кажется, пользователя с таким id не существует.")
         user.access = False
         await db_repo.update_user(user)
         await message.answer("Доступ пользователю запрещен!")
