@@ -21,6 +21,10 @@ class Plan(StatesGroup):
     confirmation_of_start = State()
     find_level = State()
     find_goal = State()
+    goal_clarification = State()
+    find_strengths = State()
+    find_favorite_skills = State()
+    about_promotion_and_channel = State()
     find_fear = State()
     find_time_in_week = State()
     find_time_for_goal = State()
@@ -29,38 +33,52 @@ class Plan(StatesGroup):
 create_plan_router = Router()
 
 
-async def gpt_step(message: Message, state: FSMContext, add_to_prompt: str, next_state: State, add_to_answer_check: str = ""):
-    db_repo = await db.get_repository()
-    user = await db_repo.get_user(message.from_user.id)
-    prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\" \n\n{add_to_answer_check}"
-    reply = gpt.chat_for_plan(prompt) 
-    reply = json.loads(reply)
-    match int(reply["status"]):
-        case 0:
-            user.messages.append({"role": "user", "content": message.text})
-            prompt = create_question_prompt + f"{user.messages}\n\n {add_to_prompt}"
-            reply = gpt.chat_for_plan(prompt)
-            reply = json.loads(reply)
-            if reply["question_text"]:
-                await message.answer(reply["question_text"])
-                await state.set_state(next_state)
-                user.messages.append({"role": "assistant", "content": reply["question_text"]})
-                await db_repo.update_user(user)
-            else:
-                await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
-                logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
-        case 1:
-            if reply["reply"]:
-                await message.answer(reply["reply"])
-            else:
-                await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
-                logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
-        case 2:
-            if reply["reply"]:
-                await message.answer(reply["reply"], reply_markup=stop_question_kb())
-            else:
-                await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
-                logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
+async def gpt_step(message: Message, state: FSMContext, 
+                   add_to_prompt: str, next_state: State, 
+                   add_to_answer_check: str = "", need_answer_options: bool = False,
+                   question_number: int = 0):
+    async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
+        await message.answer("Подожди немного, пока я подготавливаю вопрос:)")
+        db_repo = await db.get_repository()
+        user = await db_repo.get_user(message.from_user.id)
+        prompt = check_answer_prompt + f"{user.messages}\n\n тебе нужно оценить ответ \"{message.text}\"\nна вопрос\n\"{user.messages[-1]}\" \n\n{add_to_answer_check}"
+        reply = gpt.chat_for_plan(prompt) 
+        reply = json.loads(reply)
+        match int(reply["status"]):
+            case 0:
+                user.messages.append({"role": "user", "content": message.text})
+                prompt = create_question_prompt + f"{user.messages}\n\n {add_to_prompt}"
+                reply = gpt.chat_for_plan(prompt)
+                reply = json.loads(reply)
+                if reply["question_text"] and (reply["answer_options"] or not need_answer_options) and reply["reply"]:
+                    question_text = (f"Отмечаю: <b>{message.text}</b>\n\n"
+                                    f"📌 <i>Мини-итог</i>: {reply["reply"]}\n\n"
+                                    f"-----\n\n"
+                                    f"<b>Вопрос {question_number}</b>\n"
+                                    f"{reply["question_text"]}")
+                    if need_answer_options:
+                        question_text += "\n"
+                        for key, value in reply["answer_options"]:
+                            question_text += f"• {key}) {value}\n"
+                    await message.answer(question_text)
+                    await state.set_state(next_state)
+                    user.messages.append({"role": "assistant", "content": question_text})
+                    await db_repo.update_user(user)
+                else:
+                    await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                    logging.warning(f"Ошибка при создании вопроса\n\nОтвет гпт: {reply}")
+            case 1:
+                if reply["reply"]:
+                    await message.answer(reply["reply"])
+                else:
+                    await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                    logging.warning(f"Ошибка при создании вопроса\n\nОтвет гпт: {reply}")
+            case 2:
+                if reply["reply"]:
+                    await message.answer(reply["reply"], reply_markup=stop_question_kb())
+                else:
+                    await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
+                    logging.warning(f"Ошибка при создании вопроса\n\nОтвет гпт: {reply}")
 
 
 async def check_state(message: Message, state: FSMContext):
@@ -155,7 +173,7 @@ async def confirmation_of_start(message: Message, state: FSMContext):
     logging.info("Start confirmation_of_start")
     try:
         add_text = "тебе нужно придумать вопрос об уровне навыков пользователя (кто он? может быть новичок или любитель)"
-        await gpt_step(message, state, add_text, Plan.find_level)
+        await gpt_step(message, state, add_text, Plan.find_level, need_answer_options=True, question_number=1)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в confirmation_of_start")
 
@@ -164,9 +182,9 @@ async def confirmation_of_start(message: Message, state: FSMContext):
 async def find_level(message: Message, state: FSMContext):
     logging.info("Start find_level")
     try:
-        add_text_for_check_answer = "в ответе не обязательно должно быть \"Любитель, профи, новичок\" там может быть и что-то другое, например учусь или прохожу курсы для начинающим, или умею делать простые торты"
-        add_text = "тебе нужно придумать вопрос о цели пользователя, о том, чего он хочет достичь (это может быть определенный уровень дохода или мастерства, а может быть что-нибудь мелкое. Главное чтобы была цель связанная с кондитерством)"
-        await gpt_step(message, state, add_text, Plan.find_goal, add_text_for_check_answer)
+        add_text_for_check_answer = "в ответе не обязательно должно быть \"Любитель, профи, новичок\", если пользователь решил ответить что-то свое там может быть и что-то другое, например учусь или прохожу курсы для начинающим, или умею делать простые торты"
+        add_text = "тебе нужно придумать вопрос о цели пользователя, о том, чего он хочет достичь (это может быть определенный уровень дохода или мастерства, а может быть что-нибудь мелкое. Главное чтобы была цель связанная с кондитерством)\nСами ответы могут быть общими, уточнение будет в следующем вопросе"
+        await gpt_step(message, state, add_text, Plan.find_goal, add_text_for_check_answer, True, 2)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_level")
 
@@ -176,10 +194,50 @@ async def find_goal(message: Message, state: FSMContext):
     logging.info("Start find_goal")
     try:
         add_text_for_answer_check = "Цель не обязательно должна быть связана с финансами, это может быть и что-то мелкое, главное, чтобы было связано с кондитерством"
-        add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя о его страхах или возможных препятствиях при достижении его цели"
-        await gpt_step(message, state, add_text, Plan.find_fear, add_text_for_answer_check)
+        add_text = "тебе нужно придумать вопрос для того, чтобы уточнить изначальную цель пользователя (если он хочет заработать денег, то какую сумму. Если хочет стать знаменитым, то на каком уровне и т.п.)"
+        await gpt_step(message, state, add_text, Plan.goal_clarification, add_text_for_answer_check, True, 3)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_goal")
+
+
+@create_plan_router.message(Plan.goal_clarification)
+async def goal_clarification(message: Message, state: FSMContext):
+    logging.info("Start goal_clarification")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать сильные стороны пользователя (речь не о навыках кондитерства, а в целом. Например, целеустремленность или коммуникабельность). Уточни, что пользователь может выбрать несколько вариантов ответа в своем вопросе"
+        await gpt_step(message, state, add_text, Plan.find_strengths, need_answer_options=True, question_number=4)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в goal_clarification")
+
+
+@create_plan_router.message(Plan.find_strengths)
+async def find_strengths(message: Message, state: FSMContext):
+    logging.info("Start find_strengths")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать сильные стороны пользователя конкретно в кондитерстве (например, пользователь хорошо работает с украшением тортов или может делать красивые узоры их шоколада)"
+        await gpt_step(message, state, add_text, Plan.find_favorite_skills, need_answer_options=True, question_number=5)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в find_strengths")
+
+
+@create_plan_router.message(Plan.find_favorite_skills)
+async def find_favorite_skills(message: Message, state: FSMContext):
+    logging.info("Start find_favorite_skills")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать о социально жизни пользователя (есть ли у него свой канал, большой ли он, хочет ли он канал если его нет)"
+        await gpt_step(message, state, add_text, Plan.about_promotion_and_channel, need_answer_options=True, question_number=6)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в find_favorite_skills")
+
+
+@create_plan_router.message(Plan.about_promotion_and_channel)
+async def about_promotion_and_channel(message: Message, state: FSMContext):
+    logging.info("Start about_promotion_and_channel")
+    try:
+        add_text = "тебе нужно придумать вопрос для того, чтобы узнать о страхах или тревожностях пользователя, которые могут помешать ему в достижении поставленной цели"
+        await gpt_step(message, state, add_text, Plan.find_fear, need_answer_options=True, question_number=7)
+    except Exception as e:
+        logging.error(f"Ошибка: {e}, в about_promotion_and_channel")
 
 
 @create_plan_router.message(Plan.find_fear)
@@ -187,7 +245,7 @@ async def find_fear(message: Message, state: FSMContext):
     logging.info("start find_fear")
     try:
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя сколько времени в неделю или в день он готов уделять для достижения своей цели (в часах)"
-        await gpt_step(message, state, add_text, Plan.find_time_in_week)
+        await gpt_step(message, state, add_text, Plan.find_time_in_week, question_number=8)
     except Exception as e:
         logging.error(f"Ошибка: {e}, в find_fear")
 
@@ -198,7 +256,7 @@ async def find_time_in_week(message: Message, state: FSMContext):
     try:
         add_text_to_answer_check = "Если пользователь указал количество часов в сутки, то принимай этот ответ"
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать за сколько времени пользователь хочет достичь своей цели (может быть несколько дней, недель или месяцев)"
-        await gpt_step(message, state, add_text, Plan.find_time_for_goal, add_text_to_answer_check)
+        await gpt_step(message, state, add_text, Plan.find_time_for_goal, add_text_to_answer_check, question_number=9)
     except Exception as e:
         logging.error(f"Ошибка {e}, в find_time_in_week")
 
@@ -219,10 +277,14 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                 prompt = create_plan_prompt + f"{user.messages}\n\n Сегодняшняя дата {datetime.now().strftime('%d.%m.%Y')}"
                 reply = gpt.chat_for_plan(prompt)
                 reply = json.loads(reply)
-                if reply["goal"] and reply["plan"]:
+                if reply["goal"] and reply["plan"] and reply["warp"] and reply["motivation"]:
                     stages, substages = reply["plan"], reply["substage"]
-                    text = ["Хорошо! Спасибо, что ответил на мои вопросы!", "Вот твой план по достижению цели! \nА с помощью кнопки \"❗ Задания этапа \", ты можешь увидеть подэтапы плана при их наличии\n"]
-                    await state.clear()
+                    text = ("Хорошо! Спасибо, что ответил на мои вопросы!\n\n"
+                            "Вот твой план по достижению цели! \nА с помощью кнопки \"❗ Задания этапа \", "
+                            "ты можешь увидеть подэтапы плана при их наличии\n\n-----\n\n"
+                            f"<b>1. Твоя конечная цель:</b>\n\n{reply["goal"]}\n\n-----\n\n"
+                            f"<b>2. Твой персональный план основывается на:\n\n{reply["warp"]}\n\n----\n\n"
+                            f"<b>3. Пошаговый план и сроки:</b>")
                     user.stages_plan = stages
                     user.substages_plan = substages
                     user.goal = reply["goal"]
@@ -251,9 +313,16 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                             current_deadline=deadlines[0]
                         )
                         await db_repo.create_user_task(user_task)
-                    for stage_name, stage_value in stages.items():
-                        text.append(f"{stage_name} - {stage_value}\n")
-                    await message.answer('\n'.join(text))
+                    for i, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
+                        stage_num = str(i)
+                        text += (f"<b>{stage_key}</b> - {stage_value}\n\n")
+                        if stage_num in user.substages_plan:
+                            text += ("<b>Шаги этого эпата:</b>\n\n")
+                            for sub_name, sub_value in user.substages_plan[stage_num].items():
+                                text += (f"      {sub_name} - {sub_value}\n\n")
+                    text += reply["motivation"]
+                    await message.answer(text)
+                    await state.clear()
                 else:
                     await message.answer("Ошибка при обработке запроса, попробуйте еще раз позже")
                     logging.warning(f"Ошибка при создании вопроса об уровне пользователя\n\nОтвет гпт: {reply}")
