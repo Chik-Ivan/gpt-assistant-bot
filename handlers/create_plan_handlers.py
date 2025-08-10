@@ -305,6 +305,7 @@ async def find_time_for_goal(message: Message, state: FSMContext):
                     if user_task:
                         user_task.deadlines = deadlines
                         user_task.current_deadline = deadlines[0] if deadlines else None
+                        user_task.current_step = 0
                         await db_repo.update_user_task(user_task)
                     else:
                         user_task = UserTask(

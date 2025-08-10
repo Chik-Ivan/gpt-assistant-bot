@@ -10,7 +10,7 @@ from create_bot import bot
 from database.models import User, UserTask
 from typing import Optional
 from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb
-from gpt import gpt 
+from gpt import gpt, end_plan_prompt, end_task_prompt
 from utils.all_utils import extract_date_from_string
 
 
@@ -316,7 +316,8 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     today = datetime.now()
 
     if current_step == len(deadlines) - 1:
-        await call.message.answer("Это был последний этап и ты справился ос своим планом! Поздравляю!")
+        text = gpt.create_reminder(end_plan_prompt)
+        await call.message.answer(text)
         return
     
     base_deadline = deadlines[current_step]
@@ -330,7 +331,8 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     user_task.current_step += 1
     user_task.current_deadline = user_task.deadlines[user_task.current_step]
     await db_repo.update_user_task(user_task)   
-    await call.message.answer("Ваши дедлайны передвинуты!") 
+    text = gpt.create_reminder(end_task_prompt)
+    await call.message.answer(text) 
 
 
 @current_plan_router.message(AskQuestion.ask_question)

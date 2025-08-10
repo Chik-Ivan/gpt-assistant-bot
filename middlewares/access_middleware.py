@@ -3,6 +3,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message
 from database.core import db
 from database.models import User
+from keyboards.all_inline_keyboards import support_kb
 
 class AccessMiddleware(BaseMiddleware):
     async def __call__(self, handler, message: Message, data):
@@ -22,7 +23,7 @@ class AccessMiddleware(BaseMiddleware):
             )
             await db_repo.create_user(user)
         if not user.access and not user.is_admin:
-            await message.answer("Похоже, у вас нет доступа к этому боту")
+            await message.answer("Похоже, у вас нет доступа к этому боту", reply_markup=support_kb())
             logging.warning(f"Попытка воспользоваться ботом без доступа\n\nid пользователя: {user.id}")
             return
         return await handler(message, data)

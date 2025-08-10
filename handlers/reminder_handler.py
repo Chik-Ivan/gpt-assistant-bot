@@ -91,19 +91,10 @@ async def postponement_deadlines_handler(call: CallbackQuery):
 
 async def postponement_deadlines(user_task: UserTask):
     db_repo = await db.get_repository()
-    new_deadlines = []
+    adjusted = user_task.deadlines[:user_task.current_step] + [
+        d + timedelta(days=2) for d in user_task.deadlines[user_task.current_step:]
+    ]
     
-    for i, deadline in enumerate(user_task.deadlines):
-        if isinstance(deadline, str):
-            deadline_date = datetime.strptime(deadline, '%d.%m.%Y').date()
-        else:
-            deadline_date = deadline.date() if hasattr(deadline, 'date') else deadline
-            
-        if i >= user_task.current_step:
-            deadline_date += timedelta(days=2)
-        
-        new_deadlines.append(deadline_date.strftime('%d.%m.%Y'))
-    
-    user_task.deadlines = new_deadlines
-    user_task.current_deadline = user_task.deadlines[user_task.current_step]
+    user_task.deadlines = adjusted
+    user_task.current_deadline = datetime.strptime(user_task.deadlines[user_task.current_step], "%d.%m.%Y").date()
     await db_repo.update_user_task(user_task)
