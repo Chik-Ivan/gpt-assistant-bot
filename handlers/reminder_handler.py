@@ -58,9 +58,10 @@ async def check_deadlines_send_reminders(bot: Bot):
 
 @reminder_router.callback_query(F.data=="task_completed_on_time")
 async def task_complited_on_time(call: CallbackQuery):
+    await call.answer()
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
-    current_deadline = user_task.current_deadline, '%d.%m.%Y'.date()
+    current_deadline = user_task.current_deadline.date()
     today = datetime.now().date()
     if current_deadline <= today:
         user_task.current_step += 1
@@ -78,6 +79,7 @@ async def task_complited_on_time(call: CallbackQuery):
 
 @reminder_router.callback_query(F.data=="postponement_deadlines")
 async def postponement_deadlines_handler(call: CallbackQuery):
+    await call.answer()
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
     current_deadline = user_task.current_deadline.date()
