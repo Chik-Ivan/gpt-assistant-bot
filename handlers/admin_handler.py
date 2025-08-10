@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.filters import Command, CommandObject
 from handlers.current_plan_handler import check_plan
 from database.core import db
+from database.models import User
 
 
 admin_router = Router()
@@ -33,6 +34,20 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
             await message.answer("Пожалуйста, укажите ID пользователя числом, например:\n/access_true 123456789")
             return
         user = await db_repo.get_user(int(command_args))
+        if not user:
+            await message.answer("Кажется, пользователя с таким id не существует.")
+            user = User(
+                    id=message.from_user.id,
+                    goal="",
+                    stages_plan=None,
+                    substages_plan = None,
+                    messages=None,
+                    access=True,
+                    is_admin=False
+                )
+            await db_repo.create_user(user)
+            await message.answer("Был создан новый пользователь с правами доступом к боту!")
+            return
         user.access = True
         await db_repo.update_user(user)
         await message.answer("Доступ выдан успешно!")
@@ -74,6 +89,17 @@ async def add_admin(message: Message, command: CommandObject, state: FSMContext)
     new_admin = await db_repo.get_user(int(command_args))
     if not new_admin:
         await message.answer("Кажется, пользователя с таким id не существует.")
+        user = User(
+                id=message.from_user.id,
+                goal="",
+                stages_plan=None,
+                substages_plan = None,
+                messages=None,
+                access=False,
+                is_admin=True
+            )
+        await db_repo.create_user(user)
+        await message.answer("Был создан новый пользователь с правами администратора!")
         return
     new_admin.is_admin = True
     await db_repo.update_user(new_admin)
