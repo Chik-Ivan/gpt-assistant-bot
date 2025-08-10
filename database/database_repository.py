@@ -158,7 +158,7 @@ class DatabaseRepository:
         query = """
             SELECT id FROM users_data
             WHERE 
-                (goal IS NULL OR stages_plan = NULL) AND
+                (goal IS NULL OR stages_plan IS NULL) AND
                 created_at < NOW() - INTERVAL '1 day' * $1 AND
                 access = TRUE
         """
