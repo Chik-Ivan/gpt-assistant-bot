@@ -16,7 +16,8 @@ async def send_reminders(bot: Bot):
         db_repo = await db.get_repository()
         users_to_remind_create_plan = await db_repo.get_users_for_reminder_create_plan()
         users_to_remind_deadline = await db_repo.get_users_to_remind_deadline()
-        
+        logger.info(f"users_to_remind_create_plan: {users_to_remind_create_plan}")
+        logger.info(f"users_to_remind_deadline: {users_to_remind_deadline}")
         for user in users_to_remind_create_plan:
             try:
                 await bot.send_message(
