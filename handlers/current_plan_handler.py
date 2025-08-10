@@ -92,7 +92,7 @@ async def get_cuurent_plan(message: Message, state: FSMContext):
                         stage_num = str(i)
                         text.append(f"<b>{stage_key}</b> - {stage_value}\n\n")
                         if stage_num in user.substages_plan:
-                            text.append("<b>Подэтапы этого эпата:</b>\n\n")
+                            text.append("<b>Шаги этого эпата:</b>\n\n")
                             for sub_name, sub_value in user.substages_plan[stage_num].items():
                                 text.append(f"      {sub_name} - {sub_value}\n\n")
         text.append("Продолжай работать и точно достигнешь всех своих целей!")
@@ -117,8 +117,8 @@ async def plan_status(message: Message, state: FSMContext):
                                  "Попробуйте создать новый план.")
             return
         total_steps = len(user_task.deadlines)
-        normalized_step = round((user_task.current_step / total_steps) * 15)
-        normalized_step = min(max(normalized_step, 0), 15)
+        normalized_step = round((user_task.current_step / total_steps) * 18)
+        normalized_step = min(max(normalized_step, 0), 18)
         text = ("<b>Статус плана:</b>\n\n📊 <b>Прогресс:</b>\n" +
                 "⏹︎" * (normalized_step) +
                 "░" * (15 - normalized_step) + 
@@ -167,12 +167,12 @@ async def get_current_stage_info(user_task: UserTask, user: User) -> str:
 
             if substage_key in user.substages_plan:
                 for desc, dl in stage_tasks:
-                    text.append(f"• {desc} — до {dl.strftime('%d.%m.%Y')}\n")
+                    text.append(f"• {desc} — до {dl.strftime('%d.%m.%Y')}\n\n")
             else:
                 desc, date_str = stage_val.rsplit(" - ", 1)
                 dl = datetime.strptime(date_str.strip(), "%d.%m.%Y")
-                text.append(f"• Подэтапов нет – только основной этап:\n")
-                text.append(f"  {desc} — до {dl.strftime('%d.%m.%Y')}\n")
+                text.append(f"• Шагов нет – только основной этап:\n")
+                text.append(f"  {desc} — до {dl.strftime('%d.%m.%Y')}\n\n")
             break
 
     return "".join(text)
