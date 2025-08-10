@@ -48,8 +48,7 @@ async def check_deadlines_send_reminders(bot: Bot):
                 await bot.send_message(
                     chat_id=user['id'],
                     text=("⏰ Кажется, что ты так и не определился с тем, выполнена ли твоя цель, тогда я передвину дедлайны.\n\n"
-                          "Если захочешь закончить этап досрочно, то сможешь сделать это по кнопке в меню с информацией об этапе."),
-                    reply_markup=remind_about_deadline_kb()
+                          "Если захочешь закончить этап досрочно, то сможешь сделать это по кнопке в меню с информацией об этапе.")
                 )
                 user_task = await db_repo.get_user_task(user['id'])
                 await postponement_deadlines(user_task)
@@ -61,7 +60,9 @@ async def check_deadlines_send_reminders(bot: Bot):
 async def task_complited_on_time(call: CallbackQuery):
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
-    if user_task.current_deadline <= datetime.now().strftime('%d.%m.%Y'):
+    current_deadline = datetime.strptime(user_task.current_deadline, '%d.%m.%Y').date()
+    today = datetime.now().date()
+    if current_deadline <= today:
         user_task.current_step += 1
         if user_task.current_step == len(user_task.deadlines):
             text = gpt.create_reminder(end_plan_prompt)
@@ -79,7 +80,9 @@ async def task_complited_on_time(call: CallbackQuery):
 async def postponement_deadlines_handler(call: CallbackQuery):
     db_repo = await db.get_repository()
     user_task = await db_repo.get_user_task(call.from_user.id)
-    if datetime.strptime(user_task.current_deadline, '%d.%m.%Y').date() <= datetime.now().date():
+    current_deadline = datetime.strptime(user_task.current_deadline, '%d.%m.%Y').date()
+    today = datetime.now().date()
+    if current_deadline <= today:
         text = gpt.create_reminder(comfort_prompt)
         await call.message.answer(text=text)
         await postponement_deadlines(user_task)
@@ -88,11 +91,18 @@ async def postponement_deadlines_handler(call: CallbackQuery):
 
 async def postponement_deadlines(user_task: UserTask):
     db_repo = await db.get_repository()
-    new_deadlines = user_task.deadlines[:user_task.current_step]
-    for deadline in user_task.deadlines[user_task.current_step:]:
+    new_deadlines = []
+    
+    for i, deadline in enumerate(user_task.deadlines):
         if isinstance(deadline, str):
-            deadline = datetime.strptime(deadline, '%d.%m.%Y').date()
-        new_deadlines.append((deadline + timedelta(days=2)).strftime('%d.%m.%Y'))
+            deadline_date = datetime.strptime(deadline, '%d.%m.%Y').date()
+        else:
+            deadline_date = deadline.date() if hasattr(deadline, 'date') else deadline
+            
+        if i >= user_task.current_step:
+            deadline_date += timedelta(days=2)
+        
+        new_deadlines.append(deadline_date.strftime('%d.%m.%Y'))
     
     user_task.deadlines = new_deadlines
     user_task.current_deadline = user_task.deadlines[user_task.current_step]
