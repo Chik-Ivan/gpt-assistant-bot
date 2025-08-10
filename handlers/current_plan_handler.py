@@ -97,52 +97,85 @@ async def get_current_plan(message: Message, state: FSMContext):
         
         for stage_num, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
             stage_desc = stage_value.split(" - ")[0]
-            
-            if deadline_idx < len(user_task.deadlines):
-                all_tasks.append({
-                    'type': 'stage',
-                    'stage_num': stage_num,
-                    'name': stage_key,
-                    'desc': stage_desc,
-                    'deadline': user_task.deadlines[deadline_idx],
-                    'is_current': deadline_idx == user_task.current_step
-                })
-                deadline_idx += 1
-            
             stage_str_num = str(stage_num)
+            
+            substages = []
             if stage_str_num in user.substages_plan:
                 for sub_name, sub_value in user.substages_plan[stage_str_num].items():
                     if deadline_idx < len(user_task.deadlines):
                         sub_desc = sub_value.split(" - ")[0]
-                        all_tasks.append({
-                            'type': 'substage',
-                            'stage_num': stage_num,
+                        substages.append({
                             'name': sub_name,
                             'desc': sub_desc,
                             'deadline': user_task.deadlines[deadline_idx],
-                            'is_current': deadline_idx == user_task.current_step
+                            'is_current': deadline_idx == user_task.current_step,
+                            'is_completed': deadline_idx < user_task.current_step,
+                            'index': deadline_idx
                         })
                         deadline_idx += 1
+            
+            if deadline_idx < len(user_task.deadlines):
+                all_tasks.append({
+                    'stage_num': stage_num,
+                    'name': stage_key,
+                    'desc': stage_desc,
+                    'deadline': user_task.deadlines[deadline_idx],
+                    'is_current': deadline_idx == user_task.current_step,
+                    'is_completed': deadline_idx < user_task.current_step,
+                    'substages': substages,
+                    'index': deadline_idx
+                })
+                deadline_idx += 1
+            else:
+                all_tasks.append({
+                    'stage_num': stage_num,
+                    'name': stage_key,
+                    'desc': stage_desc,
+                    'deadline': None,
+                    'is_current': False,
+                    'is_completed': False,
+                    'substages': substages,
+                    'index': -1
+                })
         
-        for stage_num, (stage_key, stage_value) in enumerate(user.stages_plan.items(), start=1):
-            stage_tasks = [t for t in all_tasks if t['stage_num'] == stage_num]
+        for task in all_tasks:
+            if task['is_current']:
+                status = "🟢"
+            elif task['is_completed']:
+                status = "✅"
+            else:
+                status = "⚪"
             
-            if not stage_tasks:
-                continue
-                
-            main_task = next(t for t in stage_tasks if t['type'] == 'stage')
-            status = "🔵" if main_task['is_current'] else "✅" if user_task.current_step > all_tasks.index(main_task) else "⚪"
-            text.append(f"{status} <b>{stage_key}</b> - {main_task['desc']} (до {main_task['deadline'].strftime('%d.%m.%Y')})\n")
+            deadline_str = f" (до {task['deadline'].strftime('%d.%m.%Y')})" if task['deadline'] else ""
+            text.append(f"{status} <b>{task['name']}</b> - {task['desc']}{deadline_str}\n")
             
-            substages = [t for t in stage_tasks if t['type'] == 'substage']
-            if substages:
-                text.append("<i>Подэтапы:</i>\n")
-                for sub in substages:
-                    sub_status = "🟢" if sub['is_current'] else "✅" if user_task.current_step > all_tasks.index(sub) else "⚪"
-                    text.append(f"  {sub_status} {sub['name']} - {sub['desc']} (до {sub['deadline'].strftime('%d.%m.%Y')})\n")
+            if task['substages']:
+                text.append("<i>Шаги этого этапа:</i>\n")
+                for sub in task['substages']:
+                    if sub['is_current']:
+                        sub_status = "🟢"
+                    elif sub['is_completed']:
+                        sub_status = "✅"
+                    else:
+                        sub_status = "⚪"
+                    
+                    sub_deadline_str = f" (до {sub['deadline'].strftime('%d.%m.%Y')})" if sub['deadline'] else ""
+                    text.append(f"  {sub_status} {sub['name']} - {sub['desc']}{sub_deadline_str}\n")
             
             text.append("\n")
         
+        total_tasks = sum(1 + len(task['substages']) for task in all_tasks)
+        completed_tasks = sum(
+            1 for task in all_tasks 
+            if task['index'] != -1 and task['index'] < user_task.current_step
+        ) + sum(
+            1 for task in all_tasks 
+            for sub in task['substages'] 
+            if sub['index'] < user_task.current_step
+        )
+        
+        progress = int((completed_tasks / total_tasks) * 100) if total_tasks > 0 else 0
+        text.append(f"\n<b>Прогресс:</b> {progress}% ({completed_tasks} из {total_tasks} шагов выполнено)\n")
         text.append("\nТы на правильном пути! Продолжай в том же духе! 💪")
         
         await message.answer("".join(text))
