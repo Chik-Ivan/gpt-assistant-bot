@@ -1,5 +1,6 @@
 import asyncio
 import pytz
+from datetime import datetime
 from create_bot import bot, dp, logger, scheduler
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -12,6 +13,7 @@ from handlers.reminder_handler import send_reminders, check_deadlines_send_remin
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
 from database.core import db
+from access_manager import get_access
 
 
 async def on_startup():
@@ -32,6 +34,9 @@ async def main():
                        reminder_router,
                        create_plan_router)
     
+
+    dp.startup.register(on_startup)
+
     scheduler.start()
 
 
@@ -51,8 +56,13 @@ async def main():
         timezone=pytz.timezone('Europe/Moscow'),
         args=(bot,)
     )
-
-    dp.startup.register(on_startup)
+    scheduler.add_job(
+        get_access,
+        'interval',
+        minutes=5,
+        next_run_time=datetime.now(pytz.timezone('Europe/Moscow')),
+        misfire_grace_time=60
+    )
 
     app = web.Application()
     webhook_requests_handler = SimpleRequestHandler(

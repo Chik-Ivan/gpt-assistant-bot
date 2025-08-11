@@ -4,6 +4,7 @@ from database import create_pool
 from database.models import User, UserTask
 from typing import Optional
 from asyncpg import Pool
+from typing import List
 
 
 class DatabaseRepository:
@@ -185,3 +186,34 @@ class DatabaseRepository:
         async with self.pool.acquire() as conn:
             records = await conn.fetch(query)
             return [dict(record) for record in records]
+        
+    async def get_all_users(self) -> List[User]:
+        """Получение всех пользователей из БД"""
+        query = "SELECT * FROM users_data"
+        
+        async with self.pool.acquire() as conn:
+            records = await conn.fetch(query)
+            users = []
+            for record in records:
+                stages_plan = json.loads(record['stages_plan']) if record['stages_plan'] else None
+                substages_plan = json.loads(record['substages_plan']) if record['substages_plan'] else None
+                messages = json.loads(record['messages']) if record['messages'] else None
+                question_dialog = json.loads(record['question_dialog']) if record['question_dialog'] else None
+                users.append(User(
+                    id=record['id'],
+                    goal=record['goal'],
+                    stages_plan=stages_plan,
+                    substages_plan=substages_plan,
+                    messages=messages,
+                    question_dialog=question_dialog,
+                    access=record['access'],
+                    created_at=record['created_at'],
+                    is_admin=record["is_admin"]
+                ))
+            return users
+
+    async def bulk_update_access(self, user_ids: List[int], access: bool):
+        """Массовое обновление статуса доступа"""
+        query = "UPDATE users_data SET access = $1 WHERE id = ANY($2::int[])"
+        async with self.pool.acquire() as conn:
+            await conn.execute(query, access, user_ids)

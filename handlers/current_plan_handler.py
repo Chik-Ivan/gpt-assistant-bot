@@ -184,14 +184,13 @@ async def plan_status(message: Message, state: FSMContext):
                                  "Попробуйте создать новый план.")
             return
         total_steps = len(user_task.deadlines)
-        normalized_step = round((user_task.current_step / total_steps) * 18)
-        normalized_step = min(max(normalized_step, 0), 18)
+        normalized_step = round((user_task.current_step / total_steps) * 15)
+        normalized_step = min(max(normalized_step, 0), 15)
         text = ("<b>Статус плана:</b>\n\n📊 <b>Прогресс:</b>\n" +
-                "◼︎" * (normalized_step) +
-                "░" * (18 - normalized_step) + 
+                "🟩" * (normalized_step) +
+                "⬜" * (15 - normalized_step) + 
                 f"  <b>{int((user_task.current_step) / total_steps * 100)} %</b>\n"
-                f"<b>✅ Этапы {user_task.current_step}/{total_steps}</b>\n"
-                f"🔥 <b>Баллы: *не сказали от чего расчитываются*</b>")
+                f"<b>✅ Этапы {user_task.current_step}/{total_steps}</b>")
         await message.answer(text)
         
 
