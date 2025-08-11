@@ -115,8 +115,8 @@ class DatabaseRepository:
             access = $5,
             substages_plan = $6,
             is_admin = $7,
-            last_access = $9
-        WHERE id = $8
+            last_access = $8
+        WHERE id = $9
         """
         
         async with self.pool.acquire() as conn:
@@ -129,8 +129,8 @@ class DatabaseRepository:
                 user.access,
                 json.dumps(user.substages_plan) if user.substages_plan else None,
                 user.is_admin,
-                user.id,
-                user.last_access
+                user.last_access,
+                user.id
             )
 
     async def update_user_task(self, user_task: UserTask) -> None:
@@ -219,7 +219,13 @@ class DatabaseRepository:
 
     async def bulk_update_access(self, user_ids: List[int], access: bool):
         """Массовое обновление статуса доступа"""
-        query = "UPDATE users_data SET access = $1 WHERE id = ANY($2::bigint[])"
+        query = """
+            UPDATE users_data 
+            SET 
+                access = $1,
+                last_access = NOW()
+            WHERE id = ANY($2::bigint[])
+            """
         async with self.pool.acquire() as conn:
             await conn.execute(query, access, user_ids)
 

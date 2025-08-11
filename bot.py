@@ -43,8 +43,8 @@ async def main():
     scheduler.add_job(
         send_reminders,
         'cron',
-        hour=14,
-        minute=52,
+        hour=15,
+        minute=5,
         timezone=pytz.timezone('Europe/Moscow'),
         args=(bot,)
     )
