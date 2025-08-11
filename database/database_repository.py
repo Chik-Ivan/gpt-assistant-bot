@@ -235,6 +235,7 @@ class DatabaseRepository:
                             SELECT id FROM users_data 
                             WHERE access = FALSE 
                             AND last_access < NOW() - INTERVAL '2 days'
+                            AND is_admin = FALSE
                         )
                     """
                     deleted_tasks_count = await conn.execute(delete_tasks_query)
@@ -243,6 +244,7 @@ class DatabaseRepository:
                         DELETE FROM users_data 
                         WHERE access = FALSE 
                         AND last_access < NOW() - INTERVAL '2 days'
+                        AND is_admin = FALSE
                     """
                     deleted_users_count = await conn.execute(delete_users_query)
                     

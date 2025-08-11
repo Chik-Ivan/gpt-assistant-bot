@@ -67,7 +67,7 @@ async def main():
         delete_users,
         'cron',
         hour=13,
-        minute=50,
+        minute=51,
         timezone=pytz.timezone('Europe/Moscow')
     )
 

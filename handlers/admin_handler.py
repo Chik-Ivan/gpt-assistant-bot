@@ -102,7 +102,8 @@ async def add_admin(message: Message, command: CommandObject, state: FSMContext)
                 substages_plan = None,
                 messages=None,
                 access=False,
-                is_admin=True
+                is_admin=True,
+                last_access=None
             )
         await db_repo.create_user(user)
         await message.answer("Был создан новый пользователь с правами администратора!")
