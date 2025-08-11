@@ -238,7 +238,7 @@ class DatabaseRepository:
                             AND is_admin = FALSE
                         )
                     """
-                    deleted_tasks_count = await conn.execute(delete_tasks_query)
+                    await conn.execute(delete_tasks_query)
                     
                     delete_users_query = """
                         DELETE FROM users_data 
@@ -246,13 +246,7 @@ class DatabaseRepository:
                         AND last_access < NOW() - INTERVAL '2 days'
                         AND is_admin = FALSE
                     """
-                    deleted_users_count = await conn.execute(delete_users_query)
-                    
-                    logging.info(
-                        f"Удалено: {deleted_users_count} пользователей, "
-                        f"{deleted_tasks_count} связанных задач"
-                    )
-                    return deleted_users_count
+                    await conn.execute(delete_users_query)
                     
                 except Exception as e:
                     logging.error(f"Ошибка при удалении старых пользователей: {str(e)}")
