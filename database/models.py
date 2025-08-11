@@ -14,6 +14,7 @@ class User(BaseModel):
     access: bool = False
     created_at: datetime = datetime.now(pytz.timezone('Europe/Moscow'))
     is_admin: bool = False
+    last_access: Optional[datetime] = None
 
     class Config:
         json_encoders = {

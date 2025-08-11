@@ -13,7 +13,7 @@ from handlers.reminder_handler import send_reminders, check_deadlines_send_remin
 from aiohttp import web
 from config import WEBHOOK_PATH, WEBHOOK_URL, PORT
 from database.core import db
-from access_manager import get_access
+from access_and_delete_manager import get_access, delete_users
 
 
 async def on_startup():
@@ -62,6 +62,13 @@ async def main():
         minutes=5,
         next_run_time=datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(minutes=1),
         misfire_grace_time=60
+    )
+    scheduler.add_job(
+        delete_users,
+        'cron',
+        hour=18,
+        minute=00,
+        timezone=pytz.timezone('Europe/Moscow')
     )
 
     app = web.Application()

@@ -1,3 +1,4 @@
+from datetime import datetime
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
@@ -35,7 +36,8 @@ async def cmd_start(message: Message, state: FSMContext):
         substages_plan = None,
         messages=None,
         access=False,
-        is_admin=False
+        is_admin=False,
+        last_access=datetime.now().date()
     )
 
     try:

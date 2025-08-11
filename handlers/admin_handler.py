@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
@@ -43,7 +44,8 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
                     substages_plan = None,
                     messages=None,
                     access=True,
-                    is_admin=False
+                    is_admin=False,
+                    last_access=None
                 )
             await db_repo.create_user(user)
             await message.answer("Был создан новый пользователь с доступом к боту!")
@@ -72,6 +74,7 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
             await message.answer("Кажется, пользователя с таким id не существует.")
             return
         user.access = False
+        user.last_access = datetime.now().date()
         await db_repo.update_user(user)
         await message.answer("Доступ пользователю запрещен!")
     except Exception as e:

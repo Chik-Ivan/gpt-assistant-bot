@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from aiogram import BaseMiddleware
 from aiogram.types import Message
 from database.core import db
@@ -19,7 +20,8 @@ class AccessMiddleware(BaseMiddleware):
                 substages_plan = None,
                 messages=None,
                 access=False,
-                is_admin=False
+                is_admin=False,
+                last_access=datetime.now().date()
             )
             await db_repo.create_user(user)
         if not user.access and not user.is_admin:

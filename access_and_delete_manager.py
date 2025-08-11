@@ -51,11 +51,17 @@ async def get_access():
             substages_plan = None,
             messages=None,
             access=True,
-            is_admin=False
+            is_admin=False,
+            last_access=None
         )
         await db_repo.create_user(user)
     
     removed_users = db_user_ids - api_user_ids
     if removed_users:
         await db_repo.bulk_update_access(removed_users, False)
+
+
+async def delete_users():
+    db_repo = await db.get_repository()
+    await db_repo.delete_old_users()
     

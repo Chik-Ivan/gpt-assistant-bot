@@ -19,8 +19,8 @@ class DatabaseRepository:
     async def create_user(self, user: User) -> bool:
         """Добавление нового пользователя"""
         query = """
-        INSERT INTO users_data (id, goal, stages_plan, substages_plan, messages, access, created_at, question_dialog, is_admin)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO users_data (id, goal, stages_plan, substages_plan, messages, access, created_at, question_dialog, is_admin, last_access)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (id) DO NOTHING
         RETURNING id
         """
@@ -36,7 +36,8 @@ class DatabaseRepository:
                 user.access,
                 user.created_at,
                 json.dumps(user.question_dialog) if user.question_dialog else None,
-                user.is_admin
+                user.is_admin,
+                user.last_access
             )
             return result is not None
         
@@ -80,7 +81,8 @@ class DatabaseRepository:
                     question_dialog=question_dialog,
                     access=record['access'],
                     created_at=record['created_at'],
-                    is_admin=record["is_admin"]
+                    is_admin=record["is_admin"],
+                    last_access=record["last_access"]
                 )
             logging.warning(f"Пользователь с id={user_id} не найден в БД")
             return None
@@ -112,7 +114,8 @@ class DatabaseRepository:
             question_dialog = $4,
             access = $5,
             substages_plan = $6,
-            is_admin = $7
+            is_admin = $7,
+            last_access = $8
         WHERE id = $8
         """
         
@@ -126,7 +129,8 @@ class DatabaseRepository:
                 user.access,
                 json.dumps(user.substages_plan) if user.substages_plan else None,
                 user.is_admin,
-                user.id
+                user.id,
+                user.last_access
             )
 
     async def update_user_task(self, user_task: UserTask) -> None:
@@ -208,7 +212,8 @@ class DatabaseRepository:
                     question_dialog=question_dialog,
                     access=record['access'],
                     created_at=record['created_at'],
-                    is_admin=record["is_admin"]
+                    is_admin=record["is_admin"],
+                    last_access=record["last_access"]
                 ))
             return users
 
@@ -217,3 +222,36 @@ class DatabaseRepository:
         query = "UPDATE users_data SET access = $1 WHERE id = ANY($2::bigint[])"
         async with self.pool.acquire() as conn:
             await conn.execute(query, access, user_ids)
+
+
+    async def delete_old_users(self):
+        """Удаляем пользователей без доступа и с последним доступом > 2 дней назад"""
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    delete_tasks_query = """
+                        DELETE FROM users_tasks 
+                        WHERE id IN (
+                            SELECT id FROM users_data 
+                            WHERE access = FALSE 
+                            AND last_access < NOW() - INTERVAL '2 days'
+                        )
+                    """
+                    deleted_tasks_count = await conn.execute(delete_tasks_query)
+                    
+                    delete_users_query = """
+                        DELETE FROM users_data 
+                        WHERE access = FALSE 
+                        AND last_access < NOW() - INTERVAL '2 days'
+                    """
+                    deleted_users_count = await conn.execute(delete_users_query)
+                    
+                    logging.info(
+                        f"Удалено: {deleted_users_count} пользователей, "
+                        f"{deleted_tasks_count} связанных задач"
+                    )
+                    return deleted_users_count
+                    
+                except Exception as e:
+                    logging.error(f"Ошибка при удалении старых пользователей: {str(e)}")
+                    raise
