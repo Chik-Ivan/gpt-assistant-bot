@@ -1,5 +1,6 @@
 import requests
 import logging
+from datetime import datetime
 from typing import List, Dict
 from database.core import db
 from database.models import User
@@ -61,7 +62,13 @@ async def get_access():
     
     removed_users = db_user_ids - api_user_ids
     if removed_users:
-        await db_repo.bulk_update_access(removed_users, False)
+        for user_id in removed_users:
+            user = await db_repo.get_user(user_id)
+            if not user.access:
+                continue
+            user.access = False
+            user.last_access = datetime.now().date()
+            await db_repo.update_user(user)
 
 
 async def delete_users():
