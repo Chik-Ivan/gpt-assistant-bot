@@ -43,16 +43,16 @@ async def main():
     scheduler.add_job(
         send_reminders,
         'cron',
-        hour=15,
-        minute=40,
+        hour=12,
+        minute=00,
         timezone=pytz.timezone('Europe/Moscow'),
         args=(bot,)
     )
     scheduler.add_job(
         check_deadlines_send_reminders,
         'cron',
-        hour=15,
-        minute=35,
+        hour=13,
+        minute=00,
         timezone=pytz.timezone('Europe/Moscow'),
         args=(bot,)
     )
@@ -66,8 +66,8 @@ async def main():
     scheduler.add_job(
         delete_users,
         'cron',
-        hour=15,
-        minute=42,
+        hour=18,
+        minute=00,
         timezone=pytz.timezone('Europe/Moscow')
     )
 
