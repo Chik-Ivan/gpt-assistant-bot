@@ -8,7 +8,7 @@ from keyboards.all_inline_keyboards import support_kb
 
 class AccessMiddleware(BaseMiddleware):
     async def __call__(self, handler, message: Message, data):
-        if not message.text or message.text.startswith('/'):
+        if not message.text:
             return await handler(message, data)
         db_repo = await db.get_repository()
         user = await db_repo.get_user(message.from_user.id)
