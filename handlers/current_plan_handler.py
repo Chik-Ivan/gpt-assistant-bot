@@ -190,7 +190,7 @@ async def plan_status(message: Message, state: FSMContext):
                 "🟩" * (normalized_step) +
                 "⬜" * (15 - normalized_step) + 
                 f"  <b>{int((user_task.current_step) / total_steps * 100)} %</b>\n"
-                f"<b>✅ Этапы {user_task.current_step}/{total_steps}</b>")
+                f"<b>✅ Завершенные шаги {user_task.current_step}/{total_steps}</b>")
         await message.answer(text)
         
 

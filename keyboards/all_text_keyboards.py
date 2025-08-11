@@ -5,8 +5,9 @@ async def get_main_keyboard(user_id: int):
     kb_list = [
         [KeyboardButton(text="📋 Создать план"), KeyboardButton(text="❗ Задание этапа")],
         [KeyboardButton(text="🗒️ Текущий план"), KeyboardButton(text="⌛ Статус плана")],
-        [KeyboardButton(text="🆘 поддержка"), (KeyboardButton(text="👤 Личный кабинет"))],
+        [KeyboardButton(text="🆘 поддержка")],
     ]
+    # , (KeyboardButton(text="👤 Личный кабинет")) вставить в последнюю строку клавиатуры, когда появится
     db_repo = await db.get_repository()
     user = await db_repo.get_user(user_id)
     if user.is_admin:
