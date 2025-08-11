@@ -37,7 +37,7 @@ async def cmd_start(message: Message, state: FSMContext):
         messages=None,
         access=False,
         is_admin=False,
-        last_access=datetime.now().date()
+        last_access=datetime.now()
     )
 
     try:
