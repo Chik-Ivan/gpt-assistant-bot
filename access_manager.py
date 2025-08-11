@@ -12,7 +12,7 @@ def fetch_all_users(chat_id: int, category_id: int) -> List[Dict]:
         url = f"https://api.puzzlebot.top/?token={TOKEN_FOR_API}&method=getUsersInChat&chat_id={chat_id}&page={page}&category_id={category_id}"
         response = requests.get(url)
         if response.status_code != 200:
-            logging.ERROR(f"Ошибка на странице {page}: {response.text}")
+            logging.error(f"Ошибка на странице {page}: {response.text}")
             break
         data = response.json()
         users = data.get('data', [])
@@ -30,7 +30,7 @@ async def get_access():
     category_id = 761552
     
     users_from_api = fetch_all_users(chat_id, category_id)
-    logging.INFO(f"Получено пользователей с категорией доступа к боту: {len(users_from_api)}")
+    logging.info(f"Получено пользователей с категорией доступа к боту: {len(users_from_api)}")
     db_repo = await db.get_repository()
     users_from_db = await db_repo.get_all_users()
 
