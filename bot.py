@@ -66,8 +66,8 @@ async def main():
     scheduler.add_job(
         delete_users,
         'cron',
-        hour=18,
-        minute=00,
+        hour=13,
+        minute=50,
         timezone=pytz.timezone('Europe/Moscow')
     )
 
