@@ -30,7 +30,7 @@ async def get_access():
     category_id = 761552
     
     users_from_api = fetch_all_users(chat_id, category_id)
-    logging.INFO(f"Получено пользователей с категорией доступа к боту: {len(users)}")
+    logging.INFO(f"Получено пользователей с категорией доступа к боту: {len(users_from_api)}")
     db_repo = await db.get_repository()
     users_from_db = await db_repo.get_all_users()
 
