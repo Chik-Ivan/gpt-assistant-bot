@@ -15,7 +15,7 @@ def fetch_all_users(chat_id: int, category_id: int) -> List[Dict]:
             logging.ERROR(f"Ошибка на странице {page}: {response.text}")
             break
         data = response.json()
-        users = data.get('users', [])
+        users = data.get('data', [])
         if not users:
             break
         all_users.extend(users)
