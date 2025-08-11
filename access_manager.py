@@ -34,7 +34,7 @@ async def get_access():
     db_repo = await db.get_repository()
     users_from_db = await db_repo.get_all_users()
 
-    api_user_ids = {user["user_id"] for user in users_from_api["data"]}
+    api_user_ids = {user["user_id"] for user in users_from_api}
     db_user_ids = {user.id for user in users_from_db}
 
     
