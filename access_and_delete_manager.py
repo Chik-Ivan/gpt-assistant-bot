@@ -41,7 +41,10 @@ async def get_access():
     for new_user_id in api_user_ids:
         user = await db_repo.get_user(new_user_id)
         if user:
+            if user.access:
+                continue
             user.access = True
+            user.last_access = None
             await db_repo.update_user(user)
             continue
         user = User(
