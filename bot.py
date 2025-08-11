@@ -1,6 +1,6 @@
 import asyncio
 import pytz
-from datetime import datetime
+from datetime import datetime, timedelta
 from create_bot import bot, dp, logger, scheduler
 from aiogram.types import BotCommand, BotCommandScopeDefault
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
@@ -60,7 +60,7 @@ async def main():
         get_access,
         'interval',
         minutes=5,
-        next_run_time=datetime.now(pytz.timezone('Europe/Moscow')),
+        next_run_time=datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(minutes=1),
         misfire_grace_time=60
     )
 
