@@ -214,6 +214,6 @@ class DatabaseRepository:
 
     async def bulk_update_access(self, user_ids: List[int], access: bool):
         """Массовое обновление статуса доступа"""
-        query = "UPDATE users_data SET access = $1 WHERE id = ANY($2::int[])"
+        query = "UPDATE users_data SET access = $1 WHERE id = ANY($2::bigint[])"
         async with self.pool.acquire() as conn:
             await conn.execute(query, access, user_ids)
