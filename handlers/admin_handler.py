@@ -74,7 +74,7 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
             await message.answer("Кажется, пользователя с таким id не существует.")
             return
         user.access = False
-        user.last_access = datetime.strptime(datetime.now(), "%d.%m.%Y").date()
+        user.last_access = datetime.now().date()
         await db_repo.update_user(user)
         await message.answer("Доступ пользователю запрещен!")
     except Exception as e:

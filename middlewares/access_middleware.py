@@ -21,7 +21,7 @@ class AccessMiddleware(BaseMiddleware):
                 messages=None,
                 access=False,
                 is_admin=False,
-                last_access=datetime.strptime(datetime.now(), "%d.%m.%Y").date()
+                last_access=datetime.now().date()
             )
             await db_repo.create_user(user)
         if not user.access and not user.is_admin:
