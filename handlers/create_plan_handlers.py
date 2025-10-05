@@ -214,7 +214,7 @@ async def continue_fill_data(call: CallbackQuery, state: FSMContext):
                     await call.message.answer(text, reply_markup=main_keyboard)
                     return
         else:
-            call.message.answer("Я помню, что мы с тобой уже начинали обсуждать план, но давай уточним все детали еще раз, ну случай, если что-то в твоих ответах изменилось.")
+            await call.message.answer("Я помню, что мы с тобой уже начинали обсуждать план, но давай уточним все детали еще раз, ну случай, если что-то в твоих ответах изменилось.")
     else:
         await call.message.answer("Странно, у меня нет нашей истории переписки, давай попробуем начать сначала.")
 
