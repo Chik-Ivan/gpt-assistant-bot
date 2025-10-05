@@ -171,6 +171,7 @@ async def start_create_plan(message: Message, state: FSMContext):
 
 @create_plan_router.callback_query(F.data=="continue_with_exists_plan")
 async def continue_with_exists_plan(call: CallbackQuery, state: FSMContext):
+    await call.answer()
     db_repo = await db.get_repository()
     user = await db_repo.get_user(call.from_user.id)
     main_keyboard = await get_main_keyboard(call.from_user.id)
@@ -196,6 +197,7 @@ async def continue_with_exists_plan(call: CallbackQuery, state: FSMContext):
 
 @create_plan_router.callback_query(F.data=="continue_fill_data")
 async def continue_fill_data(call: CallbackQuery, state: FSMContext):
+    await call.answer()
     db_repo = await db.get_repository()
     user = await db_repo.get_user(call.from_user.id)
     main_keyboard = await get_main_keyboard(call.from_user.id)
@@ -207,7 +209,7 @@ async def continue_fill_data(call: CallbackQuery, state: FSMContext):
                     question = user.messages[message_ind]["content"]
                     if "<b>Вопрос" in question:
                         question = question[question.index("<b>Вопрос"):]
-                    text = ("Кажется, в прошлый раз мы остановились на следующем вопросе:\n\n",
+                    text = ("Кажется, в прошлый раз мы остановились на следующем вопросе:\n\n"
                             f"{question}")
                     await call.message.answer(text, reply_markup=main_keyboard)
                     return
