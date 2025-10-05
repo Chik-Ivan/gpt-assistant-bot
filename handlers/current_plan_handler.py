@@ -24,8 +24,6 @@ class AskQuestion(StatesGroup):
 async def check_plan(user_id: int, message: Message|CallbackQuery, state: FSMContext) -> Optional[User]:
     cur_state = await state.get_state()
 
-    logging.info(f"CUR_STATE: {cur_state}")
-
     async def send_text(text: str, reply_markup=None):
         if isinstance(message, CallbackQuery):
             await message.message.answer(text, reply_markup=reply_markup)
@@ -54,7 +52,7 @@ async def check_plan(user_id: int, message: Message|CallbackQuery, state: FSMCon
         await message.answer("Ошибка! Обратитесь к администратору.")
         return None
     else:
-        logging.info(f"Пользователь получен, id: {user.id}")
+        logging.info(f"Пользователь получен в check_plan, id: {user.id}")
     
     return user
 
@@ -251,10 +249,17 @@ async def get_current_stage_info(user_task: UserTask, user: User) -> str:
     
     if len(stage_tasks) > 1 or (len(stage_tasks) == 1 and stage_tasks[0]['type'] == 'substage'):
         text.append("<b>Подэтапы:</b>\n")
-        for task in stage_tasks:
-            text.append(f"• {task['desc']} — до {task['deadline'].strftime('%d.%m.%Y')}\n")
+        for i, task in enumerate(stage_tasks):
+            task_index_in_all = all_tasks.index(task)
+            if task_index_in_all < current_step:
+                status = "✅" 
+            elif task_index_in_all == current_step:
+                status = "🟢"
+            else:
+                status = "⚪" 
+            text.append(f"• {task['desc']} — до {task['deadline'].strftime('%d.%m.%Y')} {status}\n")
     else:
-        text.append(f"• {current_task['desc']} — до {current_task['deadline'].strftime('%d.%m.%Y')}\n")
+        text.append(f"• {current_task['desc']} — до {current_task['deadline'].strftime('%d.%m.%Y')} 🟢\n")
     
     return "".join(text)
 

@@ -3,11 +3,20 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 def get_continue_create_kb():
     kb_list = [
-        [InlineKeyboardButton(text="Хочу удалить данные!", callback_data="delete_data")]
+        [InlineKeyboardButton(text="Продолжить", callback_data="continue_fill_data")],
+        [InlineKeyboardButton(text="Хочу новый план", callback_data="delete_data")]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
+
+def get_plan_exists_kb():
+    kb_list = [
+        [InlineKeyboardButton(text="Продолжить", callback_data="continue_with_exists_plan")],
+        [InlineKeyboardButton(text="Удалить старый план", callback_data="delete_data")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
+    return keyboard
 
 def week_tasks_keyboard():
     kb_list = [

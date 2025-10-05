@@ -7,7 +7,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.chat_action import ChatActionSender
-from keyboards.all_inline_keyboards import get_continue_create_kb, stop_question_kb
+from keyboards.all_inline_keyboards import get_continue_create_kb, stop_question_kb, get_plan_exists_kb
 from keyboards.all_text_keyboards import get_main_keyboard
 from database.core import db
 from database.models import UserTask
@@ -84,11 +84,10 @@ async def gpt_step(message: Message, state: FSMContext,
 async def check_state(message: Message, state: FSMContext):
     cur_state = await state.get_state()
 
-    logging.info(f"CUR_STATE: {cur_state}")
-
     if cur_state is not None and cur_state != AskQuestion.ask_question:
         await message.answer("В данный момент я пытаюсь заполнить вашу анкету для нового плана, " 
-                            "вы можете согласиться на потерю данных и начать пользоваться остальными командами без ограничений.",
+                            "вы можете согласиться на потерю данных и начать пользоваться остальными командами без ограничений или продолжить отвечать на мои вопросы, "
+                            "пока мы не закончим заполнение анкеты.",
                              reply_markup=get_continue_create_kb())
         return None
     elif cur_state == AskQuestion.ask_question:
@@ -98,8 +97,7 @@ async def check_state(message: Message, state: FSMContext):
 
 
 @create_plan_router.callback_query(F.data == "delete_data")
-async def delete_dialog(call: CallbackQuery, state: FSMContext):
-    logging.info("Хендлер удаления запущен")
+async def delete_dialog(call: CallbackQuery, state: FSMContext, need_message: bool = True):
     await state.clear()
     await call.answer()
     
@@ -117,7 +115,8 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext):
             user_task.deadlines = None
             user_task.current_deadline = None
             await db_repo.update_user_task(user_task)
-        await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
+        if need_message:
+            await call.message.answer("Успешная отчистка данных, теперь можете попробовать заполнить анкету снова!")
     except Exception as e:
         await call.message.answer(f"Произошла ошибка: {e}")
         logging.error(f"Ошибка: {e}, при удалении данных")
@@ -141,13 +140,14 @@ async def start_create_plan(message: Message, state: FSMContext):
 
 
         if user.goal:
-            await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом.", 
-                                 reply_markup=get_continue_create_kb())
+            await message.answer("У вас уже есть план, при создании нового плана придется очистить данные о старом."
+                                 "Вы можете нажать кнопку \"Продолжить\" и продолжать пользоваться ранее созданным планом.", 
+                                 reply_markup=get_plan_exists_kb())
             return
         
         if user.messages:
-            await message.answer("Вы уже начали заполнять свой персональный план, " 
-                                "для создания нового, вам нужно очистить данные о старом.",
+            await message.answer("Вы уже начали заполнять свой персональный план, чтобы продолжить нажмите на кнопку \"Продолжить\".\n " 
+                                "Если вы хотите создать новый план, то для его создания, вам нужно очистить данные о своих прошлых ответах.",
                                 reply_markup=get_continue_create_kb())
             return
     
@@ -169,9 +169,71 @@ async def start_create_plan(message: Message, state: FSMContext):
         await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
 
 
+@create_plan_router.callback_query(F.data=="continue_with_exists_plan")
+async def continue_with_exists_plan(call: CallbackQuery, state: FSMContext):
+    db_repo = await db.get_repository()
+    user = await db_repo.get_user(call.from_user.id)
+    main_keyboard = await get_main_keyboard(call.from_user.id)
+    if user.goal and user.stages_plan:
+        await call.message.answer("Вы решили продолжить со своим прежним планом! Желаю успехов:)", reply_markup=main_keyboard)
+    else:
+        await call.message.answer("Похоже произошел какой-то сбой. Я очищу старые данные о тебе и мы начнем сначала", reply_markup=main_keyboard)
+        await delete_dialog(call, state)
+        reply = gpt.chat_for_plan(hello_prompt)
+        reply = json.loads(reply)
+        if not reply:
+            await call.message.answer("Произошла ошибка при попытке создания плана. Попробуйте еще раз позже, если ошибка сохранится обратитесь в поддержку.")
+            return
+        if reply["hello_message"]:
+            await call.message.answer(reply["hello_message"])
+            await state.set_state(Plan.confirmation_of_start)
+            user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
+            await db_repo.update_user(user)
+            return
+        logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
+        await call.message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
+
+
+@create_plan_router.callback_query(F.data=="continue_fill_data")
+async def continue_fill_data(call: CallbackQuery, state: FSMContext):
+    db_repo = await db.get_repository()
+    user = await db_repo.get_user(call.from_user.id)
+    main_keyboard = await get_main_keyboard(call.from_user.id)
+    if user.messages:
+        cur_state = await state.get_state()
+        if cur_state is not None:
+            for message_ind in range(len(user.messages) - 1, -1, -1):
+                if user.messages[message_ind]["role"] == "assistant":
+                    question = user.messages[message_ind]["content"]
+                    if "<b>Вопрос" in question:
+                        question = question[question.index("<b>Вопрос"):]
+                    text = ("Кажется, в прошлый раз мы остановились на следующем вопросе:\n\n",
+                            f"{question}")
+                    await call.message.answer(text, reply_markup=main_keyboard)
+                    return
+        else:
+            call.message.answer("Я помню, что мы с тобой уже начинали обсуждать план, но давай уточним все детали еще раз, ну случай, если что-то в твоих ответах изменилось.")
+    else:
+        await call.message.answer("Странно, у меня нет нашей истории переписки, давай попробуем начать сначала.")
+
+    await delete_dialog(call, state, False)
+    reply = gpt.chat_for_plan(hello_prompt)
+    reply = json.loads(reply)
+    if not reply:
+        await call.message.answer("Произошла ошибка при попытке создания плана. Попробуйте еще раз позже, если ошибка сохранится обратитесь в поддержку.", reply_markup=main_keyboard)
+        return
+    if reply["hello_message"]:
+        await call.message.answer(reply["hello_message"], reply_markup=main_keyboard)
+        await state.set_state(Plan.confirmation_of_start)
+        user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
+        await db_repo.update_user(user)
+        return
+    logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
+    await call.message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
+
+
 @create_plan_router.message(Plan.confirmation_of_start)
 async def confirmation_of_start(message: Message, state: FSMContext):
-    logging.info("Start confirmation_of_start")
     try:
         add_text = "тебе нужно придумать вопрос об уровне навыков пользователя (кто он? может быть новичок или любитель)"
         await gpt_step(message, state, add_text, Plan.find_level, need_answer_options=True, question_number=1)
@@ -181,7 +243,6 @@ async def confirmation_of_start(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.find_level)
 async def find_level(message: Message, state: FSMContext):
-    logging.info("Start find_level")
     try:
         add_text_for_check_answer = "в ответе не обязательно должно быть \"Любитель, профи, новичок\", если пользователь решил ответить что-то свое там может быть и что-то другое, например учусь или прохожу курсы для начинающим, или умею делать простые торты"
         add_text = "тебе нужно придумать вопрос о цели пользователя, о том, чего он хочет достичь (это может быть определенный уровень дохода или мастерства, а может быть что-нибудь мелкое. Главное чтобы была цель связанная с кондитерством)\nСами ответы могут быть общими, уточнение будет в следующем вопросе"
@@ -192,7 +253,6 @@ async def find_level(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.find_goal)
 async def find_goal(message: Message, state: FSMContext):
-    logging.info("Start find_goal")
     try:
         add_text_for_answer_check = "Цель не обязательно должна быть связана с финансами, это может быть и что-то мелкое, главное, чтобы было связано с кондитерством"
         add_text = "тебе нужно придумать вопрос для того, чтобы уточнить изначальную цель пользователя (если он хочет заработать денег, то какую сумму. Если хочет стать знаменитым, то на каком уровне и т.п.)\nВАЖНО, ЧТО ПРЕДЛОЖАННЫЕ ВАРИАНТЫ ДОЛЖНЫ ОТВЕТА ДОЛЖНЫ ПРОДОЛЖАТЬ ИЗНАЧАЛЬНО ВЫБРАННУЮ ПОЛЬЗОВАТЕЛЕМ ЦЕЛЬ!!"
@@ -203,7 +263,6 @@ async def find_goal(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.goal_clarification)
 async def goal_clarification(message: Message, state: FSMContext):
-    logging.info("Start goal_clarification")
     try:
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать сильные стороны пользователя (речь не о навыках кондитерства, а в целом. Например, целеустремленность или коммуникабельность). Уточни, что пользователь может выбрать несколько вариантов ответа в своем вопросе"
         await gpt_step(message, state, add_text, Plan.find_strengths, need_answer_options=True, question_number=4)
@@ -213,7 +272,6 @@ async def goal_clarification(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.find_strengths)
 async def find_strengths(message: Message, state: FSMContext):
-    logging.info("Start find_strengths")
     try:
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать сильные стороны пользователя конкретно в кондитерстве (например, пользователь хорошо работает с украшением тортов или может делать красивые узоры их шоколада)"
         await gpt_step(message, state, add_text, Plan.find_favorite_skills, need_answer_options=True, question_number=5)
@@ -223,7 +281,6 @@ async def find_strengths(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.find_favorite_skills)
 async def find_favorite_skills(message: Message, state: FSMContext):
-    logging.info("Start find_favorite_skills")
     try:
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать о социально жизни пользователя (есть ли у него свой канал, большой ли он, хочет ли он канал если его нет)"
         await gpt_step(message, state, add_text, Plan.about_promotion_and_channel, need_answer_options=True, question_number=6)
@@ -233,7 +290,6 @@ async def find_favorite_skills(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.about_promotion_and_channel)
 async def about_promotion_and_channel(message: Message, state: FSMContext):
-    logging.info("Start about_promotion_and_channel")
     try:
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать о страхах или тревожностях пользователя, которые могут помешать ему в достижении поставленной цели"
         await gpt_step(message, state, add_text, Plan.find_fear, need_answer_options=True, question_number=7)
@@ -243,7 +299,6 @@ async def about_promotion_and_channel(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.find_fear)
 async def find_fear(message: Message, state: FSMContext):
-    logging.info("start find_fear")
     try:
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать у пользователя сколько времени в неделю или в день он готов уделять для достижения своей цели (в часах)"
         await gpt_step(message, state, add_text, Plan.find_time_in_week, question_number=8)
@@ -253,7 +308,6 @@ async def find_fear(message: Message, state: FSMContext):
 
 @create_plan_router.message(Plan.find_time_in_week)
 async def find_time_in_week(message: Message, state: FSMContext):
-    logging.info("start find_time_in_week")
     try:
         add_text_to_answer_check = "Если пользователь указал количество часов в сутки, то принимай этот ответ"
         add_text = "тебе нужно придумать вопрос для того, чтобы узнать за сколько времени пользователь хочет достичь своей цели (может быть несколько дней, недель или месяцев)"
@@ -264,7 +318,6 @@ async def find_time_in_week(message: Message, state: FSMContext):
     
 @create_plan_router.message(Plan.find_time_for_goal)
 async def find_time_for_goal(message: Message, state: FSMContext):
-    logging.info("start find_time_for_goal")
     try:
         db_repo = await db.get_repository()
         user = await db_repo.get_user(message.from_user.id)

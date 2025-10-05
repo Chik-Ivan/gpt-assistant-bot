@@ -10,7 +10,6 @@ class GPT:
 
 
     def chat_for_plan(self, prompt: str) -> str:
-        logging.info(f"Внутри класса GPT: prompt - {prompt}")
 
         try:
             response = self.openai.chat.completions.create(
@@ -19,7 +18,6 @@ class GPT:
                 temperature=0.7
             )
             reply = response.choices[0].message.content
-            logging.info(f"reply - {reply}\n\nresponse - {response}")
             return self._extract_clean_json(reply)
 
         except Exception as e:
