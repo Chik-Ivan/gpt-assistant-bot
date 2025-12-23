@@ -9,7 +9,7 @@ from database.core import db
 from create_bot import bot
 from database.models import User, UserTask
 from typing import Optional
-from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb
+from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb, new_plan_after_completion_kb
 from gpt import gpt, end_plan_prompt, end_task_prompt
 from utils.all_utils import extract_date_from_string
 
@@ -182,6 +182,11 @@ async def plan_status(message: Message, state: FSMContext):
                                  "Попробуйте создать новый план.")
             return
         total_steps = len(user_task.deadlines)
+        current_step = user_task.current_step
+        if current_step == total_steps:
+            text = f"Похоже ваш текущий план уже завершен!\nХотите создать себе новую цель?"
+            await message.answer(text, reply_markup=new_plan_after_completion_kb())
+            return
         normalized_step = round((user_task.current_step / total_steps) * 15)
         normalized_step = min(max(normalized_step, 0), 15)
         text = ("<b>Статус плана:</b>\n\n📊 <b>Прогресс:</b>\n" +
@@ -199,6 +204,9 @@ async def get_current_stage_info(user_task: UserTask, user: User) -> str:
     if not deadlines:
         return "Нет активных задач или дедлайнов."
     
+    if current_step == len(user_task.deadlines):
+            text = f"Похоже ваш текущий план уже завершен!\nХотите создать себе новую цель?"
+            return text
     all_tasks = []
     deadline_idx = 0
     
@@ -281,7 +289,10 @@ async def current_status(message: Message, state: FSMContext):
             return
         
         text = await get_current_stage_info(user_task, user)
-        await message.answer(text, reply_markup=week_tasks_keyboard())
+        if text == "Похоже ваш текущий план уже завершен!\nХотите создать себе новую цель?":
+            await message.answer(text, reply_markup=new_plan_after_completion_kb())
+        else:
+            await message.answer(text, reply_markup=week_tasks_keyboard())
 
 
 @current_plan_router.callback_query(F.data=="ask_question")
@@ -322,6 +333,8 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     if current_step == len(deadlines) - 1:
         text = gpt.create_reminder(end_plan_prompt)
         await call.message.answer(text)
+        user_task.current_step += 1
+        await db_repo.update_user_task(user_task)  
         return
     
     base_deadline = deadlines[current_step]

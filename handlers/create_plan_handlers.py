@@ -95,6 +95,14 @@ async def check_state(message: Message, state: FSMContext):
         return None
     return True
 
+@create_plan_router.callback_query(F.data == "new_plan_after_completion")
+async def delete_dialog(call: CallbackQuery, state: FSMContext):
+    await delete_dialog(call, state, False)
+    await start_create_plan(call.message, state, call.from_user.id) 
+    # Неочевидная вещь в том, что в функциях глубже вызывается messege.from_user.id, что не применимо к call.message объекту, так как будет получен id бота
+    # Кроме id вызывается message.answer, что применимо к call.message
+    return
+
 
 @create_plan_router.callback_query(F.data == "delete_data")
 async def delete_dialog(call: CallbackQuery, state: FSMContext, need_message: bool = True):
@@ -123,13 +131,13 @@ async def delete_dialog(call: CallbackQuery, state: FSMContext, need_message: bo
 
 
 @create_plan_router.message(F.text == "📋 Создать план")
-async def start_create_plan(message: Message, state: FSMContext):
+async def start_create_plan(message: Message, state: FSMContext, user_id = None):
     check = await check_state(message, state)
     if not check:
         return
     db_repo = await db.get_repository()
     async with ChatActionSender(bot=bot, chat_id=message.chat.id, action="typing"):
-        user = await db_repo.get_user(message.from_user.id)
+        user = await db_repo.get_user(message.from_user.id if user_id is None else user_id)
 
         if user is None:
             logging.error("Не найден пользователь при попытке создания нового плана")
@@ -154,7 +162,7 @@ async def start_create_plan(message: Message, state: FSMContext):
         
         reply = gpt.chat_for_plan(hello_prompt)
         reply = json.loads(reply)
-        main_keyboard = await get_main_keyboard(message.from_user.id)
+        main_keyboard = await get_main_keyboard(message.from_user.id if user_id is None else user_id)
         if not reply:
             await message.answer("Произошла ошибка при попытке создания плана. Попробуйте еще раз позже, если ошибка сохранится обратитесь в поддержку.",
                                  reply_markup=main_keyboard)

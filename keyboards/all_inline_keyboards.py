@@ -9,6 +9,13 @@ def get_continue_create_kb():
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
+def new_plan_after_completion_kb():
+    kb_list = [
+        [InlineKeyboardButton(text="Хочу новый план", callback_data="new_plan_after_completion")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
+    return keyboard
+
 
 def get_plan_exists_kb():
     kb_list = [
