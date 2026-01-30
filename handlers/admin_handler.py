@@ -54,12 +54,12 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
         await db_repo.update_user(user)
         await message.answer("Доступ выдан успешно!")
     except Exception as e:
-        logging.warning(e)
+        logging.warning(f"Ошибка в admin_handler\\access_true: {e}")
         await message.answer(f"ошибка\n\n{e}")
 
 
 @admin_router.message(Command("access_false"))
-async def access_true(message: Message, command: CommandObject, state: FSMContext):
+async def access_false(message: Message, command: CommandObject, state: FSMContext):
     user = await check_plan(message.from_user.id, message, state)
     if not user or not user.is_admin:
         return
@@ -78,7 +78,7 @@ async def access_true(message: Message, command: CommandObject, state: FSMContex
         await db_repo.update_user(user)
         await message.answer("Доступ пользователю запрещен!")
     except Exception as e:
-        logging.warning(e)
+        logging.warning(f"Ошибка в admin_handler\\access_false: {e}")
         await message.answer(f"ошибка\n\n{e}")
 
 

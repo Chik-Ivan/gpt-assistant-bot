@@ -63,18 +63,29 @@ async def task_complited_on_time(call: CallbackQuery):
     user_task = await db_repo.get_user_task(call.from_user.id)
     current_deadline = user_task.current_deadline.date()
     today = datetime.now().date()
-    if current_deadline <= today:
-        user_task.current_step += 1
-        if user_task.current_step == len(user_task.deadlines):
-            text = gpt.create_reminder(end_plan_prompt)
-            await call.message.answer(text)
-            return
-        text = gpt.create_reminder(end_task_prompt)
-        await call.message.answer(text=text)
-        user_task.current_deadline = user_task.deadlines[user_task.current_step]
-        await db_repo.update_user_task(user_task)
-    else:
-        await call.message.answer(text="Кажется, что ты уже отметил задачу выполненной:)\n\n")
+    try:
+        if current_deadline <= today:
+            user_task.current_step += 1
+            if user_task.current_step == len(user_task.deadlines):
+                text = gpt.create_reminder(end_plan_prompt)
+                if not text: 
+                    logging.warning(f"Пустой текст напоминания в reminder_handler\\task_complited_on_time")
+                    return
+                await call.message.answer(text)
+                return
+            text = gpt.create_reminder(end_task_prompt)
+            if not text: 
+                    logging.warning(f"Пустой текст напоминания в reminder_handler\\task_complited_on_time")
+                    return
+            await call.message.answer(text=text)
+            user_task.current_deadline = user_task.deadlines[user_task.current_step]
+            await db_repo.update_user_task(user_task)
+        else:
+            await call.message.answer(text="Кажется, что ты уже отметил задачу выполненной:)\n\n")
+    except Exception as e:
+        logging.error(f"Ошибка в reminder_handler\\task_complited_on_time: {e}")
+        return 
+
 
 
 @reminder_router.callback_query(F.data=="postponement_deadlines")
@@ -84,12 +95,19 @@ async def postponement_deadlines_handler(call: CallbackQuery):
     user_task = await db_repo.get_user_task(call.from_user.id)
     current_deadline = user_task.current_deadline.date()
     today = datetime.now().date()
-    if current_deadline <= today:
-        text = gpt.create_reminder(comfort_prompt)
-        await call.message.answer(text=text)
-        await postponement_deadlines(user_task)
-    else:
-        await call.message.answer(text="Кажется, что твой дедлайн и так не сегодня.")
+    try:
+        if current_deadline <= today:
+            text = gpt.create_reminder(comfort_prompt)
+            if not text: 
+                    logging.warning(f"Пустой текст напоминания в reminder_handler\\postponement_deadlines_handler")
+                    return
+            await call.message.answer(text=text)
+            await postponement_deadlines(user_task)
+        else:
+            await call.message.answer(text="Кажется, что твой дедлайн и так не сегодня.")
+    except Exception as e:
+        logging.error(f"Ошибка в reminder_handler\\postponement_deadlines_handler: {e}")
+        return
 
 async def postponement_deadlines(user_task: UserTask):
     db_repo = await db.get_repository()

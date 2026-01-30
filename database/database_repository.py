@@ -24,22 +24,25 @@ class DatabaseRepository:
         ON CONFLICT (id) DO NOTHING
         RETURNING id
         """
-        
-        async with self.pool.acquire() as conn:
-            result = await conn.fetchval(
-                query,
-                user.id,
-                user.goal,
-                json.dumps(user.stages_plan) if user.stages_plan else None,
-                json.dumps(user.substages_plan) if user.substages_plan else None,
-                json.dumps(user.messages) if user.messages else None,
-                user.access,
-                user.created_at,
-                json.dumps(user.question_dialog) if user.question_dialog else None,
-                user.is_admin,
-                user.last_access
-            )
-            return result is not None
+        try:
+            async with self.pool.acquire() as conn:
+                result = await conn.fetchval(
+                    query,
+                    user.id,
+                    user.goal,
+                    json.dumps(user.stages_plan) if user.stages_plan else None,
+                    json.dumps(user.substages_plan) if user.substages_plan else None,
+                    json.dumps(user.messages) if user.messages else None,
+                    user.access,
+                    user.created_at,
+                    json.dumps(user.question_dialog) if user.question_dialog else None,
+                    user.is_admin,
+                    user.last_access
+                )
+                return result is not None
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\create_user: {e}")
+            return False
         
     async def create_user_task(self, user_task: UserTask) -> bool:
         "Добавление новой задачи для пользователя"
@@ -49,16 +52,19 @@ class DatabaseRepository:
         ON CONFLICT (id) DO NOTHING
         RETURNING id
         """
-
-        async with self.pool.acquire() as conn:
-            result = await conn.fetchval(
-                query,
-                user_task.id,
-                user_task.current_step,
-                user_task.current_deadline,
-                json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None
-            )
-            return result is not None
+        try:
+            async with self.pool.acquire() as conn:
+                result = await conn.fetchval(
+                    query,
+                    user_task.id,
+                    user_task.current_step,
+                    user_task.current_deadline,
+                    json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None
+                )
+                return result is not None
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\create_user_task: {e}")
+            return False
         
     async def get_user(self, user_id: int) -> Optional[User]:
         """Получение пользователя"""
@@ -84,7 +90,7 @@ class DatabaseRepository:
                     is_admin=record["is_admin"],
                     last_access=record["last_access"]
                 )
-            logging.warning(f"Пользователь с id={user_id} не найден в БД")
+            logging.warning(f"Пользователь с id={user_id} не найден в БД (db_repository\\get_user)")
             return None
         
     async def get_user_task(self, user_id: int) -> Optional[UserTask]:
@@ -102,6 +108,8 @@ class DatabaseRepository:
                     current_deadline=record["current_deadline"],
                     deadlines=deadlines
                 )
+            else:
+                logging.warning(f"Задача пользователя с id: {user_id} не найдена (db_repository\\get_user_task)")
         
     async def update_user(self, user: User) -> None:
         """Обновление данных пользователя"""
@@ -118,20 +126,22 @@ class DatabaseRepository:
             last_access = $8
         WHERE id = $9
         """
-        
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                query,
-                user.goal,
-                json.dumps(user.stages_plan) if user.stages_plan else None,
-                json.dumps(user.messages) if user.messages else None,
-                json.dumps(user.question_dialog) if user.question_dialog else None,
-                user.access,
-                json.dumps(user.substages_plan) if user.substages_plan else None,
-                user.is_admin,
-                user.last_access,
-                user.id
-            )
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    query,
+                    user.goal,
+                    json.dumps(user.stages_plan) if user.stages_plan else None,
+                    json.dumps(user.messages) if user.messages else None,
+                    json.dumps(user.question_dialog) if user.question_dialog else None,
+                    user.access,
+                    json.dumps(user.substages_plan) if user.substages_plan else None,
+                    user.is_admin,
+                    user.last_access,
+                    user.id
+                )
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\update_user: {e}")
 
     async def update_user_task(self, user_task: UserTask) -> None:
         "Обновление данных о задаче пользователя"
@@ -143,15 +153,17 @@ class DatabaseRepository:
             deadlines = $3
         WHERE id = $4
         """
-
-        async with self.pool.acquire() as conn:
-            await conn.execute(
-                query,
-                user_task.current_step,
-                user_task.current_deadline,
-                json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None,
-                user_task.id
-            )
+        try:
+            async with self.pool.acquire() as conn:
+                await conn.execute(
+                    query,
+                    user_task.current_step,
+                    user_task.current_deadline,
+                    json.dumps(user_task.deadlines, default=lambda x: x.isoformat()) if user_task.deadlines else None,
+                    user_task.id
+                )
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\update_user_task: {e}")
 
 
     async def get_users_for_reminder_create_plan(self, days_threshold: int = 1) -> list[dict]:
@@ -167,10 +179,13 @@ class DatabaseRepository:
                 created_at < NOW() - INTERVAL '1 day' * $1 AND
                 access = TRUE
         """
-        
-        async with self.pool.acquire() as conn:
-            records = await conn.fetch(query, days_threshold)
-            return [dict(record) for record in records]
+        try:
+            async with self.pool.acquire() as conn:
+                records = await conn.fetch(query, days_threshold)
+                return [dict(record) for record in records]
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\get_users_for_reminder_create_plan: {e}")
+            return []
 
     async def get_users_to_remind_deadline(self) -> list[dict]:
         """
@@ -186,38 +201,44 @@ class DatabaseRepository:
                 (ut.current_deadline::date = CURRENT_DATE OR ut.current_deadline::date < CURRENT_DATE) AND
                 ud.access = TRUE
         """
-        
-        async with self.pool.acquire() as conn:
-            records = await conn.fetch(query)
-            return [dict(record) for record in records]
+        try:
+            async with self.pool.acquire() as conn:
+                records = await conn.fetch(query)
+                return [dict(record) for record in records]
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\get_users_to_remind_deadline: {e}")
+            return []
         
     async def get_all_users(self) -> List[User]:
         """Получение всех пользователей из БД"""
         query = "SELECT * FROM users_data"
-        
-        async with self.pool.acquire() as conn:
-            records = await conn.fetch(query)
-            users = []
-            for record in records:
-                stages_plan = json.loads(record['stages_plan']) if record['stages_plan'] else None
-                substages_plan = json.loads(record['substages_plan']) if record['substages_plan'] else None
-                messages = json.loads(record['messages']) if record['messages'] else None
-                question_dialog = json.loads(record['question_dialog']) if record['question_dialog'] else None
-                users.append(User(
-                    id=record['id'],
-                    goal=record['goal'],
-                    stages_plan=stages_plan,
-                    substages_plan=substages_plan,
-                    messages=messages,
-                    question_dialog=question_dialog,
-                    access=record['access'],
-                    created_at=record['created_at'],
-                    is_admin=record["is_admin"],
-                    last_access=record["last_access"]
-                ))
-            return users
+        try:
+            async with self.pool.acquire() as conn:
+                records = await conn.fetch(query)
+                users = []
+                for record in records:
+                    stages_plan = json.loads(record['stages_plan']) if record['stages_plan'] else None
+                    substages_plan = json.loads(record['substages_plan']) if record['substages_plan'] else None
+                    messages = json.loads(record['messages']) if record['messages'] else None
+                    question_dialog = json.loads(record['question_dialog']) if record['question_dialog'] else None
+                    users.append(User(
+                        id=record['id'],
+                        goal=record['goal'],
+                        stages_plan=stages_plan,
+                        substages_plan=substages_plan,
+                        messages=messages,
+                        question_dialog=question_dialog,
+                        access=record['access'],
+                        created_at=record['created_at'],
+                        is_admin=record["is_admin"],
+                        last_access=record["last_access"]
+                    ))
+                return users
+        except Exception as e:
+            logging.error(f"Ошибка в db_repository\\get_all_users: {e}")
+            return []
 
-    async def bulk_update_access(self, user_ids: List[int], access: bool):
+    async def bulk_update_access(self, user_ids: List[int], access: bool) -> None:
         """Массовое обновление статуса доступа"""
         query = """
             UPDATE users_data 
@@ -226,8 +247,11 @@ class DatabaseRepository:
                 last_access = NOW()
             WHERE id = ANY($2::bigint[])
             """
-        async with self.pool.acquire() as conn:
-            await conn.execute(query, access, user_ids)
+        try: 
+            async with self.pool.acquire() as conn:
+                await conn.execute(query, access, user_ids)
+        except:
+            logging.error("Ошибка в db_repository\\bulk_update_access")
 
 
     async def delete_old_users(self):
@@ -256,4 +280,3 @@ class DatabaseRepository:
                     
                 except Exception as e:
                     logging.error(f"Ошибка при удалении старых пользователей: {str(e)}")
-                    raise

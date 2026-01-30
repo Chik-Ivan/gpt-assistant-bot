@@ -9,9 +9,8 @@ from database.core import db
 from create_bot import bot
 from database.models import User, UserTask
 from typing import Optional
-from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, support_kb, stop_question_kb, new_plan_after_completion_kb
+from keyboards.all_inline_keyboards import get_continue_create_kb, week_tasks_keyboard, stop_question_kb, new_plan_after_completion_kb
 from gpt import gpt, end_plan_prompt, end_task_prompt
-from utils.all_utils import extract_date_from_string
 
 
 current_plan_router = Router()
@@ -332,6 +331,9 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
 
     if current_step == len(deadlines) - 1:
         text = gpt.create_reminder(end_plan_prompt)
+        if not text: 
+            logging.warning(f"Пустой текст напоминания в current_plan_handler\\mark_completed")
+            return
         await call.message.answer(text)
         user_task.current_step += 1
         await db_repo.update_user_task(user_task)  
@@ -349,6 +351,9 @@ async def mark_completed(call: CallbackQuery, state: FSMContext):
     user_task.current_deadline = user_task.deadlines[user_task.current_step]
     await db_repo.update_user_task(user_task)   
     text = gpt.create_reminder(end_task_prompt)
+    if not text: 
+            logging.warning(f"Пустой текст напоминания в current_plan_handler\\mark_completed")
+            return
     await call.message.answer(text) 
 
 

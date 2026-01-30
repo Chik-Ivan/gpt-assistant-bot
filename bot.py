@@ -61,7 +61,8 @@ async def main():
         'interval',
         minutes=5,
         next_run_time=datetime.now(pytz.timezone('Europe/Moscow')) + timedelta(minutes=1),
-        misfire_grace_time=60
+        misfire_grace_time=120,
+        max_instances=1
     )
     scheduler.add_job(
         delete_users,

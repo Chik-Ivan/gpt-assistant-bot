@@ -1,7 +1,6 @@
 import logging
 import json
-from typing import Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
@@ -173,7 +172,7 @@ async def start_create_plan(message: Message, state: FSMContext, user_id = None)
             user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
             await db_repo.update_user(user)
             return
-        logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
+        logging.info(f"Кривой ответ при приветственном сообщении (start_create_plan):\n\n {reply}")
         await message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
 
 
@@ -199,7 +198,7 @@ async def continue_with_exists_plan(call: CallbackQuery, state: FSMContext):
             user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
             await db_repo.update_user(user)
             return
-        logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
+        logging.info(f"Кривой ответ при приветственном сообщении (continue_with_exists_plan):\n\n {reply}")
         await call.message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
 
 
@@ -238,7 +237,7 @@ async def continue_fill_data(call: CallbackQuery, state: FSMContext):
         user.messages = [{"role": "assistant", "content": reply["hello_message"]}]
         await db_repo.update_user(user)
         return
-    logging.info(f"Кривой ответ при приветственном сообщении:\n\n {reply}")
+    logging.info(f"Кривой ответ при приветственном сообщении (continue_fill_data):\n\n {reply}")
     await call.message.answer(f"Кажется произошла ошибка, попробуйте позже!", reply_markup=main_keyboard)
 
 

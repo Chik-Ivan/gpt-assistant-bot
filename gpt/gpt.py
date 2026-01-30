@@ -1,7 +1,5 @@
-from typing import Optional, List, Dict, Tuple, Type
+from typing import Optional, List, Dict, Tuple
 import logging
-import re
-from utils.all_utils import extract_between
 
 class GPT:
     def __init__(self, openai, question_about_plan_prompt: str):
@@ -10,7 +8,6 @@ class GPT:
 
 
     def chat_for_plan(self, prompt: str) -> str:
-
         try:
             response = self.openai.chat.completions.create(
                 model="gpt-4o",
@@ -22,7 +19,7 @@ class GPT:
 
         except Exception as e:
             logging.error(f"Ошибка GPT {e}")
-            return (e)
+            return ''
         
     def _extract_clean_json(self, text: str) -> str:
         brace_stack = []
@@ -79,12 +76,16 @@ class GPT:
             return (None, f"Ошибка {e}", 2)
         
     def create_reminder(self, prompt: str) -> str:
-        message = [{"role": "system", "content": prompt}]
-        response = self.openai.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=message,
-                    temperature=0.7
-                )
-        reply = response.choices[0].message.content
-        return reply
+        try:
+            message = [{"role": "system", "content": prompt}]
+            response = self.openai.chat.completions.create(
+                        model="gpt-3.5-turbo",
+                        messages=message,
+                        temperature=0.7
+                    )
+            reply = response.choices[0].message.content
+            return reply
+        except Exception as e:
+            logging.error(f"Ошибка в gpt\\create_reminder {e}")
+            return ''
         
